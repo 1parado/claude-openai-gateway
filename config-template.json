@@ -1,0 +1,59 @@
+{
+  "_说明": "复制本文件为 config.json 后填写。所有带 _说明 的键只是注释，网关会忽略；也可以删掉。",
+
+  "port": 8787,
+  "_port说明": "网关监听端口，桌面端配置与 CLI 包装器默认指向 8787，改了需同步",
+
+  "upstreamBaseUrl": "https://api.openai.com/v1",
+  "_upstream说明": "OpenAI 兼容上游地址（不含 /chat/completions），官方或中转站均可，本地服务如 http://127.0.0.1:8000/v1",
+
+  "upstreamApiKey": "sk-填你的上游密钥",
+  "_upstreamApiKey说明": "上游服务的 API Key（敏感，勿外传）",
+
+  "gatewayApiKey": "",
+  "_gatewayApiKey说明": "可选。为空 = 网关本身不鉴权（本机自用推荐）；填了则调用方需带此 key（桌面端 inferenceGatewayApiKey 需同步）",
+
+  "models": {
+    "default": "上游模型id",
+    "small": "上游模型id",
+    "big": "上游模型id",
+    "think": "上游模型id"
+  },
+  "_models说明": "槽位路由：default 兜底；small=后台轻任务(Haiku)；big=主力模型(Opus/Sonnet)；think=显式开启深度思考时的模型。填上游 /v1/models 里的原始 id",
+
+  "modelAliases": {
+    "claude-sonnet-4-5-20250929": "上游模型id",
+    "claude-opus-4-1": "上游模型id"
+  },
+  "_modelAliases说明": "可选。客户端请求这些 Claude 模型名时改路由到指定上游模型；不需要可留空 {}",
+
+  "thinking": {
+    "strategy": "reasoning_effort",
+    "tiers": [
+      { "maxBudgetTokens": 4096, "body": { "reasoning_effort": "low" } },
+      { "maxBudgetTokens": 16384, "body": { "reasoning_effort": "medium" } },
+      { "body": { "reasoning_effort": "high" } }
+    ],
+    "disabledBody": {},
+    "dropTemperatureWhenThinking": true
+  },
+  "_thinking说明": "Claude 的 budget_tokens 按档位映射为上游 reasoning_effort；不支持思考的模型可整体照抄不动",
+
+  "webSearch": { "enabled": true },
+  "_webSearch说明": "true 时客户端的 web_search 工具由网关内部执行（Bing/DDG），不需要可设 false",
+
+  "upstreamRetries": 2,
+  "maxTokensLimit": 32768,
+  "contextWindows": { "default": 200000 },
+  "_contextWindows说明": "可选。按上游模型 id 标注真实上下文窗口（tokens），未列出的走 default；如 {\"cn:glm-5.3-flash\": 1000000}",
+
+  "sendStreamOptions": true,
+  "requestTimeoutSeconds": 300,
+  "logRequests": true,
+
+  "logs": {
+    "retentionHours": 24,
+    "maxMemoryEntries": 500
+  },
+  "_logs说明": "retentionHours=日志文件保留时长（超时自动删除）；maxMemoryEntries=控制台内存中保留的最近请求数"
+}

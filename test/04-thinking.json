@@ -1,0 +1,9 @@
+{
+  "model": "claude-sonnet-4-5-20250929",
+  "max_tokens": 4096,
+  "stream": true,
+  "thinking": { "type": "enabled", "budget_tokens": 2048 },
+  "messages": [
+    { "role": "user", "content": "一个三位数，各位数字之和是 12，且百位数字是个位数字的 2 倍。求所有满足条件的三位数。请先推理再给答案。" }
+  ]
+}

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gateway 控制台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='8' rx='3' fill='%23e8842c'/%3E%3Crect x='3' y='18' width='26' height='8' rx='3' fill='%23c96a1a'/%3E%3Ccircle cx='8' cy='10' r='1.6' fill='%23fff'/%3E%3Ccircle cx='8' cy='22' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --panel2: #fafaf8; --line: #e4e4e0;
+    --text: #1f2328; --muted: #6e7378; --accent: #e8842c; --accent-soft: #fdf1e4;
+    --ok: #2da44e; --err: #cf222e; --bar1: #e8842c; --bar2: #f2b36d;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+    --radius: 12px; --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181a; --panel: #1f2124; --panel2: #242629; --line: #33363a;
+      --text: #e8eaed; --muted: #9aa0a6; --accent: #f0953f; --accent-soft: #3a2c1c;
+      --ok: #4cc26b; --err: #f47067; --bar1: #f0953f; --bar2: #6b4a25;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181a; --panel: #1f2124; --panel2: #242629; --line: #33363a;
+    --text: #e8eaed; --muted: #9aa0a6; --accent: #f0953f; --accent-soft: #3a2c1c;
+    --ok: #4cc26b; --err: #f47067; --bar1: #f0953f; --bar2: #6b4a25;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 system-ui, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header.top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; border-bottom: 1px solid var(--line);
+    background: var(--panel); position: sticky; top: 0; z-index: 10;
+  }
+  .logo { width: 22px; height: 22px; border-radius: 6px; flex: none;
+    background:
+      linear-gradient(var(--accent) 0 0) 0 0 / 100% 44% no-repeat,
+      linear-gradient(#c96a1a 0 0) 0 100% / 100% 44% no-repeat;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+  }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: .2px; }
+  .brand small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
+  .pill.up .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+  .spacer { flex: 1; }
+  button.ghost {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+  }
+  button.ghost:hover { background: var(--panel2); }
+  nav.seg {
+    display: flex; gap: 2px; background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 3px;
+  }
+  nav.seg button {
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
+    padding: 5px 14px; border-radius: 7px; cursor: pointer;
+  }
+  nav.seg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 550; }
+  main { max-width: 1060px; margin: 0 auto; padding: 20px; }
+  section.view { display: none; }
+  section.view.on { display: block; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .card .k { font-size: 12px; color: var(--muted); }
+  .card .v { font-size: 22px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .card .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .card.warn .v { color: var(--err); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); font-variant-numeric: tabular-nums; vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; }
+  code.mono { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--muted); }
+  .bar-cell { position: relative; min-width: 160px; }
+  .bar-cell .bar { height: 6px; border-radius: 4px; background: var(--bar1); opacity: .85; min-width: 2px; }
+  .badge { display: inline-block; font-size: 11px; border-radius: 6px; padding: 1px 7px; font-family: var(--mono); }
+  .badge.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  .badge.err { color: var(--err); background: color-mix(in srgb, var(--err) 12%, transparent); }
+  .badge.dim { color: var(--muted); background: var(--panel2); }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .row .grow { flex: 1; }
+  label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+  select { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+  button.danger { border-color: color-mix(in srgb, var(--err) 40%, var(--line)); color: var(--err); }
+  textarea {
+    width: 100%; min-height: 110px; resize: vertical;
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; font: 13px/1.6 var(--mono);
+  }
+  textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: transparent; }
+  .fld { margin-bottom: 12px; }
+  .fld .cap { font-size: 12.5px; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .result { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .result .card { flex: 1; min-width: 130px; }
+  .note { font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; }
+  .chart svg { display: block; width: 100%; height: 150px; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: r .8s linear infinite; vertical-align: -2px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .flash { animation: f .5s ease; }
+  @keyframes f { from { background: var(--accent-soft); } }
+  @media (max-width: 640px) { header.top { flex-wrap: wrap; } main { padding: 12px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="logo" aria-hidden="true"></span>
+  <span class="brand">Gateway 控制台<small>anthropic ↔ openai</small></span>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">连接中…</span></span>
+  <span class="pill" id="upstreamPill" title="上游服务" hidden></span>
+  <span class="spacer"></span>
+  <nav class="seg" id="tabs" aria-label="导航">
+    <button data-view="overview" class="on">概览</button>
+    <button data-view="logs">请求日志</button>
+    <button data-view="counter">Token 计数</button>
+  </nav>
+  <button class="ghost" id="themeBtn" title="切换主题">🌗</button>
+</header>
+
+<main>
+  <!-- ================= 概览 ================= -->
+  <section class="view on" id="view-overview">
+    <div class="cards" id="cards">
+      <div class="card"><div class="k">今日请求</div><div class="v" id="c-req">–</div></div>
+      <div class="card"><div class="k">今日输入 tokens</div><div class="v" id="c-in">–</div></div>
+      <div class="card"><div class="k">今日输出 tokens</div><div class="v" id="c-out">–</div></div>
+      <div class="card"><div class="k">缓存命中 <small id="c-cache-sub"></small></div><div class="v" id="c-cache">–</div></div>
+      <div class="card warn"><div class="k">今日错误</div><div class="v" id="c-err">–</div></div>
+      <div class="card"><div class="k">web_search 次数</div><div class="v" id="c-search">–</div></div>
+    </div>
+
+    <div class="panel chart">
+      <div class="row" style="margin-bottom:4px">
+        <h2 style="margin:0">近 14 天用量</h2>
+        <span class="grow"></span>
+        <span class="note" id="winNote"></span>
+      </div>
+      <div id="chart"></div>
+      <div class="legend">
+        <span><i style="background:var(--bar1)"></i>输入 tokens</span>
+        <span><i style="background:var(--bar2)"></i>输出 tokens（放大 5× 便于同图对比）</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>按模型统计</h2>
+      <div id="modelTable"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="margin-bottom:0">
+        <h2 style="margin:0">网关信息</h2>
+        <span class="grow"></span>
+        <span class="note" id="uptime"></span>
+      </div>
+      <p class="note" id="info" style="margin:8px 0 0"></p>
+    </div>
+  </section>
+
+  <!-- ================= 日志 ================= -->
+  <section class="view" id="view-logs">
+    <div class="panel">
+      <div class="row">
+        <h2 style="margin:0">请求日志</h2>
+        <span class="note" id="logNote"></span>
+        <span class="grow"></span>
+        <label class="chk"><input type="checkbox" id="autoRefresh" checked> 自动刷新</label>
+        <select id="logLimit" title="条数">
+          <option value="50">50 条</option>
+          <option value="100" selected>100 条</option>
+          <option value="300">300 条</option>
+        </select>
+        <button class="ghost danger" id="clearBtn">清空日志</button>
+      </div>
+      <div id="logTable"></div>
+    </div>
+  </section>
+
+  <!-- ================= Token 计数 ================= -->
+  <section class="view" id="view-counter">
+    <div class="panel">
+      <h2>Token 计数器</h2>
+      <p class="note" style="margin-top:-6px">使用网关的 <code class="mono">/v1/messages/count_tokens</code> 估算（中文约 1 字/token，英文约 3.8 字符/token；Claude Code 会把工具 schema 一并计入）。</p>
+      <div class="fld">
+        <div class="cap"><span>系统提示（可选）</span><span id="sysChars" class="muted"></span></div>
+        <textarea id="sysText" placeholder="system prompt…"></textarea>
+      </div>
+      <div class="fld">
+        <div class="cap"><span>对话 / 文本内容</span><span id="msgChars" class="muted"></span></div>
+        <textarea id="msgText" placeholder="粘贴要估算的内容…" style="min-height:160px"></textarea>
+      </div>
+      <div class="result" id="counterResult">
+        <div class="card"><div class="k">估算 tokens</div><div class="v" id="t-total">–</div></div>
+        <div class="card"><div class="k">字符数</div><div class="v" id="t-chars">–</div></div>
+        <div class="card"><div class="k">其中中日韩字符</div><div class="v" id="t-cjk">–</div></div>
+        <div class="card"><div class="k">折合英文单词 ≈</div><div class="v" id="t-words">–</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => {
+  if (n == null) return '–';
+  if (n >= 1e8) return (n / 1e8).toFixed(2) + ' 亿';
+  if (n >= 1e4) return (n / 1e4).toFixed(1) + ' 万';
+  return n.toLocaleString('en-US');
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const escAttr = esc;
+
+// ---- 主题：自动 -> 浅色 -> 深色 循环，记忆在 localStorage ----
+const themeBtn = $('#themeBtn');
+const THEME_KEY = 'gw-theme';
+function applyTheme(t) {
+  if (t === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  themeBtn.textContent = t === 'auto' ? '🌗' : t === 'light' ? '☀️' : '🌙';
+  localStorage.setItem(THEME_KEY, t);
+}
+applyTheme(localStorage.getItem(THEME_KEY) || 'auto');
+themeBtn.onclick = () => {
+  const cur = localStorage.getItem(THEME_KEY) || 'auto';
+  applyTheme(cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto');
+};
+
+// ---- Tab 切换 ----
+let activeView = 'overview';
+$('#tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  activeView = btn.dataset.view;
+  for (const b of $('#tabs').querySelectorAll('button')) b.classList.toggle('on', b === btn);
+  for (const v of document.querySelectorAll('section.view')) v.classList.toggle('on', v.id === 'view-' + activeView);
+  refreshAll();
+});
+
+// ---- 健康状态 ----
+async function pollHealth() {
+  try {
+    const r = await fetch('/health');
+    const h = await r.json();
+    $('#pill').classList.add('up');
+    $('#pillText').textContent = '网关运行中 · :' + location.port;
+    const up = $('#upstreamPill');
+    up.hidden = false;
+    up.textContent = '上游 ' + String(h.upstream).replace(/^https?:\/\//, '');
+    up.title = `上游模型缓存 ${h.upstreamModelsCached} 个 · web_search ${h.webSearch ? '开' : '关'}`;
+  } catch {
+    $('#pill').classList.remove('up');
+    $('#pillText').textContent = '网关离线';
+    $('#upstreamPill').hidden = true;
+  }
+}
+setInterval(pollHealth, 10000);
+pollHealth();
+
+// ---- 概览 ----
+let lastStats = null;
+async function loadStats() {
+  try {
+    const r = await fetch('/admin/stats');
+    lastStats = await r.json();
+    renderOverview();
+  } catch { /* 网关离线时保留旧数据 */ }
+}
+
+function renderOverview() {
+  const s = lastStats;
+  if (!s) return;
+  $('#c-req').textContent = fmt(s.today.requests);
+  $('#c-in').textContent = fmt(s.today.input);
+  $('#c-out').textContent = fmt(s.today.output);
+  const cachePct = s.today.input ? Math.round(100 * s.today.cached / s.today.input) : 0;
+  $('#c-cache').innerHTML = cachePct + '<small>%</small>';
+  $('#c-cache-sub').textContent = fmt(s.today.cached) + ' tok';
+  $('#c-err').textContent = fmt(s.today.errors);
+  $('#c-search').textContent = fmt(s.today.searches);
+  $('#winNote').textContent = `统计窗口：最近 ${s.retentionHours} 小时（窗口内共 ${fmt(s.total.requests)} 次请求）`;
+  $('#uptime').textContent = `运行 ${Math.floor(s.uptimeSec / 3600)}h ${Math.floor(s.uptimeSec % 3600 / 60)}m`;
+  $('#info').innerHTML =
+    `模型路由 default=<code class="mono">${escAttr(s.models.default)}</code> · big=<code class="mono">${escAttr(s.models.big)}</code> · ` +
+    `think=<code class="mono">${escAttr(s.models.think)}</code> · 上游 <code class="mono">${escAttr(s.upstream)}</code> · ` +
+    `web_search ${s.webSearch ? '开启' : '关闭'}；日志每 ${s.retentionHours} 小时自动清理。`;
+
+  // 按模型表格
+  const rows = s.byModel || [];
+  const maxTok = Math.max(1, ...rows.map((m) => m.input + m.output));
+  $('#modelTable').innerHTML = rows.length ? `<table>
+    <thead><tr><th>模型</th><th class="num">请求</th><th class="num">输入 tok</th><th class="num">输出 tok</th><th class="num">错误</th><th style="width:26%">占比</th></tr></thead>
+    <tbody>${rows.map((m) => `<tr>
+      <td><code class="mono">${escAttr(m.model)}</code></td>
+      <td class="num">${fmt(m.requests)}</td>
+      <td class="num">${fmt(m.input)}</td>
+      <td class="num">${fmt(m.output)}</td>
+      <td class="num">${m.errors ? `<span class="badge err">${m.errors}</span>` : '<span class="muted">0</span>'}</td>
+      <td class="bar-cell"><div class="bar" style="width:${Math.max(2, 100 * (m.input + m.output) / maxTok).toFixed(1)}%"></div></td>
+    </tr>`).join('')}</tbody></table>` : '<div class="empty">还没有请求记录 — 通过 Claude Code / 桌面端发一条消息试试</div>';
+
+  renderChart(s.daily || []);
+}
+
+function renderChart(daily) {
+  const W = 900, H = 150, padL = 8, padB = 20, gap = 6;
+  const n = Math.max(daily.length, 1);
+  const bw = (W - padL * 2 - gap * (n - 1)) / n;
+  const maxV = Math.max(1, ...daily.map((d) => d.input + d.output * 5));
+  let bars = '', labels = '';
+  daily.forEach((d, i) => {
+    const x = padL + i * (bw + gap);
+    const hIn = (d.input / maxV) * (H - padB);
+    const hOut = (d.output * 5 / maxV) * (H - padB); // 输出放大 5x
+    const yIn = H - padB - hIn, yOut = yIn - hOut;
+    if (d.input) bars += `<rect x="${x}" y="${yIn}" width="${bw}" height="${Math.max(hIn, 1)}" rx="2.5" fill="var(--bar1)"><title>${d.day} 输入 ${fmt(d.input)} tok / ${d.requests} 次请求</title></rect>`;
+    if (d.output) bars += `<rect x="${x}" y="${yOut}" width="${bw}" height="${Math.max(hOut, 1)}" rx="2.5" fill="var(--bar2)"><title>${d.day} 输出 ${fmt(d.output)} tok</title></rect>`;
+    labels += `<text x="${x + bw / 2}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="middle">${d.day.slice(5)}</text>`;
+  });
+  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:150px">${bars}${labels}</svg>`;
+}
+
+// ---- 日志 ----
+async function loadLogs() {
+  const limit = Number($('#logLimit').value);
+  try {
+    const r = await fetch('/admin/logs?limit=' + limit);
+    const data = await r.json();
+    renderLogs(data.entries || [], data.retentionHours);
+  } catch { /* ignore */ }
+}
+
+function renderLogs(entries, retentionHours) {
+  $('#logNote').textContent = `保留 ${retentionHours} 小时 · 显示最近 ${entries.length} 条`;
+  if (!entries.length) {
+    $('#logTable').innerHTML = '<div class="empty">暂无日志</div>';
+    return;
+  }
+  $('#logTable').innerHTML = `<table>
+    <thead><tr><th>时间</th><th>类型</th><th>模型</th><th class="num">输入</th><th class="num">输出</th><th class="num">缓存</th><th class="num">耗时</th><th>状态</th></tr></thead>
+    <tbody>${entries.map((e) => {
+      const t = new Date(e.ts);
+      const time = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+      const u = e.usage || {};
+      const err = e.status >= 400;
+      const status = err
+        ? `<span class="badge err" title="${escAttr(e.error || '')}">${e.status}</span>`
+        : `<span class="badge ok">200</span>`;
+      const model = e.route === 'count_tokens'
+        ? '<span class="muted">—</span>'
+        : `<code class="mono" title="${escAttr(e.model || '')} → ${escAttr(e.resolved || '')}">${escAttr(shortModel(e.resolved || e.model))}</code>`;
+      const tags = [
+        e.stream ? '流式' : '非流',
+        e.thinking ? 'think' : '',
+        e.tools ? `${e.tools} 工具` : '',
+        e.searches ? `${e.searches}×搜索` : '',
+      ].filter(Boolean).join(' · ');
+      return `<tr class="flash">
+        <td class="mono" style="font-family:var(--mono);font-size:12px">${time}</td>
+        <td><span class="badge dim">${escAttr(e.route || 'messages')}</span></td>
+        <td>${model}${tags ? `<div class="muted" style="font-size:11px">${escAttr(tags)}</div>` : ''}</td>
+        <td class="num">${fmt(u.in)}</td>
+        <td class="num">${fmt(u.out)}</td>
+        <td class="num">${u.cached ? fmt(u.cached) : '<span class="muted">0</span>'}</td>
+        <td class="num">${e.durationMs != null ? (e.durationMs >= 1000 ? (e.durationMs / 1000).toFixed(1) + 's' : e.durationMs + 'ms') : '–'}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function shortModel(id) {
+  if (!id) return '';
+  return id.length > 34 ? id.slice(0, 16) + '…' + id.slice(-14) : id;
+}
+
+$('#clearBtn').onclick = async () => {
+  if (!confirm('清空全部请求日志？（内存 + 磁盘文件）')) return;
+  await fetch('/admin/logs/clear', { method: 'POST' });
+  loadLogs(); loadStats();
+};
+
+// ---- Token 计数器 ----
+const CJK_RE = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef\u3040-\u30ff\uac00-\ud7af]/g;
+let counterTimer = null;
+function scheduleCount() {
+  clearTimeout(counterTimer);
+  counterTimer = setTimeout(countTokens, 350);
+  const sys = $('#sysText').value, msg = $('#msgText').value;
+  $('#sysChars').textContent = sys.length + ' 字符';
+  $('#msgChars').textContent = msg.length + ' 字符';
+  const all = sys + msg;
+  const cjk = (all.match(CJK_RE) || []).length;
+  $('#t-chars').textContent = all.length.toLocaleString();
+  $('#t-cjk').textContent = cjk.toLocaleString();
+  $('#t-words').textContent = Math.ceil((all.length - cjk) / 5).toLocaleString();
+}
+async function countTokens() {
+  const sys = $('#sysText').value.trim();
+  const msg = $('#msgText').value;
+  if (!sys && !msg.trim()) { $('#t-total').textContent = '0'; return; }
+  try {
+    const r = await fetch('/v1/messages/count_tokens', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...(sys ? { system: sys } : {}),
+        messages: [{ role: 'user', content: msg || '.' }],
+      }),
+    });
+    const data = await r.json();
+    $('#t-total').textContent = fmt(data.input_tokens);
+  } catch { $('#t-total').textContent = '–'; }
+}
+$('#sysText').addEventListener('input', scheduleCount);
+$('#msgText').addEventListener('input', scheduleCount);
+
+// ---- 刷新调度 ----
+let refreshTimer = null;
+function refreshAll() {
+  if (activeView === 'overview') loadStats();
+  if (activeView === 'logs') loadLogs();
+}
+function restartAuto() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (document.hidden) return;
+    if (activeView === 'logs' && $('#autoRefresh').checked) loadLogs();
+    if (activeView === 'overview') loadStats();
+  }, 5000);
+}
+$('#autoRefresh').addEventListener('change', () => $('#autoRefresh').checked && loadLogs());
+$('#logLimit').addEventListener('change', loadLogs);
+
+refreshAll();
+restartAuto();
+</script>
+</body>
+</html>

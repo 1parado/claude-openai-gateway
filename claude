@@ -1,0 +1,8 @@
+#!/bin/sh
+# claude 智能路由包装器（Git Bash 用）
+# 网关(8787)在线 -> 用隔离档案(claude-profile)启动，走网关
+# 网关离线       -> 直接启动，走 ~/.claude/settings.json 原配置
+if curl -s -m 2 --noproxy '*' http://127.0.0.1:8787/health >/dev/null 2>&1; then
+  export CLAUDE_CONFIG_DIR="$(dirname "$0")claude-profile"
+fi
+exec "$HOME/.local/bin/claude.exe" "$@"

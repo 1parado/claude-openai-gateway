@@ -1,0 +1,15 @@
+# 敏感信息 —— 不要提交
+config.json
+# 含上游 API Key
+claude-profile/
+# CLI 隔离档案（本地会话历史、机器 ID、插件缓存）
+
+# 运行时产物
+logs/
+# 请求日志
+gateway-console.log
+*.log
+
+# 系统杂项
+Thumbs.db
+.DS_Store

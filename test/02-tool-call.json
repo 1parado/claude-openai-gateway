@@ -1,0 +1,22 @@
+{
+  "model": "claude-sonnet-4-5-20250929",
+  "max_tokens": 1024,
+  "stream": true,
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "查询指定城市的实时天气",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "city": { "type": "string", "description": "城市名，如 北京" },
+          "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] }
+        },
+        "required": ["city"]
+      }
+    }
+  ],
+  "messages": [
+    { "role": "user", "content": "北京今天天气怎么样？帮我查一下" }
+  ]
+}

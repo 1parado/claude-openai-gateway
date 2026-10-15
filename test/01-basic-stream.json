@@ -1,0 +1,8 @@
+{
+  "model": "claude-sonnet-4-5-20250929",
+  "max_tokens": 300,
+  "stream": true,
+  "messages": [
+    { "role": "user", "content": "写一句关于秋天的诗，不超过 20 个字" }
+  ]
+}

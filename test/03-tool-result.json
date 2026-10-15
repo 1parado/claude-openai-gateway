@@ -1,0 +1,44 @@
+{
+  "model": "claude-sonnet-4-5-20250929",
+  "max_tokens": 1024,
+  "stream": true,
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "查询指定城市的实时天气",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "city": { "type": "string", "description": "城市名，如 北京" },
+          "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] }
+        },
+        "required": ["city"]
+      }
+    }
+  ],
+  "messages": [
+    { "role": "user", "content": "北京今天天气怎么样？帮我查一下" },
+    {
+      "role": "assistant",
+      "content": [
+        { "type": "text", "text": "我来帮您查询北京的天气。" },
+        {
+          "type": "tool_use",
+          "id": "call_test_001",
+          "name": "get_weather",
+          "input": { "city": "北京", "unit": "celsius" }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_test_001",
+          "content": "晴，12°C，西北风 3 级，湿度 28%，空气质量优"
+        }
+      ]
+    }
+  ]
+}
