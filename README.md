@@ -3,13 +3,13 @@
 Anthropic `/v1/messages` ↔ OpenAI `chat/completions` 双向协议网关 + magpie 风格极简 WebUI。
 零依赖，Node >= 18 单文件网关（`gateway.mjs`），前端为纯静态单页（`ui/index.html`）。
 
-> 本目录为**现役套件**（网关 + WebUI + CLI 包装器 + 测试）；`E:\claude-openai-gateway` 为旧版备份。
+- 本目录为**现役套件**（网关 + WebUI + CLI 包装器 + 测试）。
 
 ## 快速启动
 
-双击 **`start-gateway.cmd`** —— 自动打开浏览器进入控制台，网关监听 `http://127.0.0.1:8787`。
+Windows：双击 **`start-gateway.cmd`** —— 自动打开浏览器进入控制台，网关监听 `http://127.0.0.1:8787`。
 
-或手动：
+macOS / Linux（或 Windows 终端）：
 
 ```bash
 node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
@@ -17,8 +17,8 @@ node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
 
 - WebUI：<http://127.0.0.1:8787/ui>（`/` 同样直达）
 - 健康：`GET /health`
-- Claude Code CLI：目录内 `claude.cmd`（cmd/PowerShell）/ `claude`（Git Bash）为智能路由包装器——网关在线走网关（隔离档案 `claude-profile/`），离线回落原配置
-- Claude 桌面端：`%LOCALAPPDATA%\Claude-3p\configLibrary\` 已指向 8787，无需改动
+- Claude Code CLI（可选）：目录内 `claude.cmd`（cmd/PowerShell）/ `claude`（Git Bash）是智能路由包装器——网关在线走网关，离线回落你原有的 claude 配置。**首次使用前**把 `examples/claude-profile-settings.json` 复制为 `claude-profile/settings.json`（`env` 里的模型名可改成你 `config.json` 中配置的别名）
+- Claude 桌面端：把桌面端的自定义网关（inference gateway）地址指向 `http://127.0.0.1:8787`、API Key 随意（`config.gatewayApiKey` 为空时不校验），模型列表会从网关自动发现
 
 ## WebUI 功能（http://127.0.0.1:8787/ui）
 
@@ -61,7 +61,7 @@ node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
     "default": 200000
   }
   ```
-- **CLI 默认 1M**：`claude-profile/settings.json` 的模型环境变量已全部带 `[1m]` 后缀；想让 CLI 按 200K 规划（换取更早的自动压缩、更低首 token 延迟）就把后缀去掉。
+- **CLI 长上下文（可选）**：在 `claude-profile/settings.json` 的模型环境变量后加 `[1m]` 后缀（Claude Code 官方长上下文标记），CLI 会按 1M 规划上下文；去掉后缀则按 200K 规划（更早自动压缩、更低首 token 延迟）。
 - 注意：窗口按 1M 规划后，上下文累积很大时首 token 延迟会明显上升（magpie 文档实测 550K 时 70–90s），属上游推理耗时，不是网关问题。
 
 ## 测试

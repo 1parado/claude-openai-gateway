@@ -1,0 +1,13 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8787",
+    "ANTHROPIC_AUTH_TOKEN": "local-gateway",
+    "ANTHROPIC_MODEL": "claude-sonnet-4-5",
+    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "claude-haiku-4-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "claude-sonnet-4-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "claude-opus-4-1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-4-5",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  }
+}
