@@ -1,17 +1,80 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head>
+<html lang="zh-CN">
+<head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Claude \u2194 OpenAI \u534f\u8bae\u7f51\u5173 \u00b7 \u539f\u7406\u7b14\u8bb0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles.css"/>
-<script src="p0.js"></script>
-<script src="p1.js"></script>
-<script src="p2.js"></script>
-<script src="p3.js"></script>
-</head><body>
-<script>
-const b64=(window.__P0||"")+(window.__P1||"")+(window.__P2||"")+(window.__P3||"");
-const html=new TextDecoder().decode(Uint8Array.from(atob(b64),c=>c.charCodeAt(0)));
-document.open();document.write(html);document.close();
-</script>
-</body></html>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="https://github.com/1parado/claude-openai-gateway" title="Repo">\u2190</a>
+  <div class="top-right"><a class="active" href="#">EN</a><span style="color:var(--faint)"> \u00b7 </span><a href="#">\u4e2d</a></div>
+</div>
+<article>
+<p class="meta">Oct 14, 2026 <span>\u00b7</span> Notes <span>\u00b7</span> 8 min</p>
+<h1>Claude \u2194 OpenAI \u534f\u8bae\u7f51\u5173</h1>
+<p class="dek">\u96f6\u4f9d\u8d56\u672c\u5730\u7f51\u5173\uff0c\u628a Anthropic Messages API \u5b8c\u6574\u7ffb\u8bd1\u6210 OpenAI Chat Completions\u3002Claude Code / Desktop \u4ee5\u4e3a\u81ea\u5df1\u5728\u8ddf Anthropic \u8bf4\u8bdd\u2014\u2014\u5b9e\u9645\u4e0a\u6bcf\u4e00\u5b57\u8282\u90fd\u7ecf\u8fc7\u4e86\u534f\u8bae\u8f6c\u6362\u3002</p>
+<hr class="rule"/>
+<p>\u4ed3\u5e93 <a href="https://github.com/1parado/claude-openai-gateway" target="_blank" rel="noopener">1parado/claude-openai-gateway</a>\u3002\u6838\u5fc3\u5728\u5355\u6587\u4ef6 <code>gateway.mjs</code>\u3002</p>
+<h2>\u8c01\u5728\u8ddf\u8c01\u8bf4\u8bdd</h2>
+<p>Claude \u53ea\u8ba4 <code>/v1/messages</code>\uff1b\u4e0a\u6e38\u53ea\u8ba4 <code>/v1/chat/completions</code>\u3002\u7f51\u5173\u505a\u4e09\u4ef6\u4e8b\uff1a\u7ed3\u6784\u5bf9\u9f50\u3001\u6d41\u5f0f\u4e8b\u4ef6\u8fd8\u539f\u3001\u8bed\u4e49\u8865\u9f50\u3002</p>
+<div class="diagram" style="padding:20px 24px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:center;font-size:14px">
+<div style="background:#fff;border:1px solid #d4d1ca;border-radius:10px;padding:14px 18px;text-align:center;min-width:120px"><strong>Claude Code</strong><br/><span style="color:#6b6b6b;font-size:12px">/ Desktop</span></div>
+<span style="color:#9a9a9a">\u2192</span>
+<div style="background:#f0eeea;border:1.5px solid #1a1a1a;border-radius:10px;padding:14px 18px;text-align:center;min-width:130px"><strong>gateway.mjs</strong><br/><span style="font-family:monospace;font-size:12px;color:#6b6b6b">:8787</span></div>
+<span style="color:#9a9a9a">\u2192</span>
+<div style="background:#fff;border:1px solid #d4d1ca;border-radius:10px;padding:14px 18px;text-align:center;min-width:120px"><strong>OpenAI-compat</strong><br/><span style="color:#6b6b6b;font-size:12px">Upstream</span></div>
+</div>
+<p class="diagram-caption" style="margin-top:16px">\u7ed3\u6784\u5bf9\u9f50 \u00b7 \u6d41\u5f0f\u72b6\u6001\u673a \u00b7 \u8bed\u4e49\u8865\u9f50</p>
+</div>
+<h2>\u8bf7\u6c42\u8f6c\u6362</h2>
+<p>Anthropic \u7684 <code>content</code> \u662f\u5757\u6570\u7ec4\uff1bOpenAI \u662f\u6241\u5e73 <code>role + content</code> \u4e0e <code>tool_calls</code>\u3002</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Anthropic</th><th>OpenAI</th><th>\u8bf4\u660e</th></tr></thead>
+<tbody>
+<tr><td><code>system</code></td><td><code>role: "system"</code></td><td>\u591a\u5757\u62fc\u63a5</td></tr>
+<tr><td><code>user</code> \u6587\u672c</td><td><code>role: "user"</code></td><td>\u5b57\u7b26\u4e32\u6216 text part</td></tr>
+<tr><td><code>image</code></td><td><code>image_url</code></td><td>base64 \u2192 data URI</td></tr>
+<tr><td><code>assistant.tool_use</code></td><td><code>tool_calls[]</code></td><td>id / name / arguments</td></tr>
+<tr><td><code>user.tool_result</code></td><td><code>role: "tool"</code></td><td>\u5fc5\u987b\u7d27\u8ddf\u5bf9\u5e94 assistant</td></tr>
+<tr><td><code>thinking</code> \u5386\u53f2</td><td>\u2014</td><td>\u8bf7\u6c42\u4fa7\u901a\u5e38\u4e22\u5f03</td></tr>
+</tbody></table></div>
+<div class="note"><strong>\u987a\u5e8f\u662f\u786c\u7ea6\u675f\u3002</strong> OpenAI \u8981\u6c42 tool \u6d88\u606f\u7d27\u8ddf\u5e26 tool_calls \u7684 assistant\u3002\u7f51\u5173\u5728 <code>convertMessages</code> \u91cc\u62c6\u5206\u3001\u91cd\u6392\u5e76\u6e05\u6d17\u5b64\u513f tool \u6d88\u606f\u3002</div>
+<p><code>input_schema</code> \u2192 <code>function.parameters</code>\uff1b<code>tool_choice: "any"</code> \u2192 <code>"required"</code>\u3002\u5ba2\u6237\u7aef\u7684 <code>web_search_*</code> \u7531\u7f51\u5173\u5185\u90e8\u6267\u884c\u3002</p>
+<p>\u6a21\u578b\u8def\u7531\uff1a\u7cbe\u786e\u522b\u540d \u2192 haiku/sonnet/opus \u69fd\u4f4d \u2192 \u5265\u79bb <code>[1m]</code>\u3002Thinking \u7684 <code>budget_tokens</code> \u6620\u5c04\u4e3a <code>reasoning_effort</code>\uff08low / medium / high\uff09\u3002</p>
+<h2>\u54cd\u5e94\u8f6c\u6362</h2>
+<ol class="steps">
+<li><div><strong>reasoning_content</strong><span>\u2192 thinking \u5757 + \u5047 signature</span></div></li>
+<li><div><strong>&lt;think&gt; \u6807\u7b7e</strong><span>\u6b63\u5219\u62c6\u51fa thinking \u4e0e text</span></div></li>
+<li><div><strong>tool_calls</strong><span>\u2192 tool_use \u5757</span></div></li>
+<li><div><strong>\u7ec4\u88c5 message</strong><span>stop_reason \u00b7 usage</span></div></li>
+</ol>
+<p><code>stop</code> \u2192 <code>end_turn</code>\uff1b<code>tool_calls</code> \u2192 <code>tool_use</code>\uff1b<code>length</code> \u2192 <code>max_tokens</code>\u3002</p>
+<h2>\u6d41\u5f0f\u72b6\u6001\u673a</h2>
+<p>OpenAI \u589e\u91cf chunk \u7531 <code>StreamConverter</code> \u8fd8\u539f\u4e3a\u4e25\u683c\u987a\u5e8f\uff1a</p>
+<ul class="sse">
+<li><span class="ev">message_start</span><span class="desc">\u5143\u4fe1\u606f</span></li>
+<li><span class="ev">content_block_start</span><span class="desc">\u5f00\u5757 text / thinking / tool_use</span></li>
+<li><span class="ev">content_block_delta</span><span class="desc">text_delta \u00b7 thinking_delta \u00b7 input_json_delta</span></li>
+<li><span class="ev">content_block_stop</span><span class="desc">\u5173\u5757</span></li>
+<li><span class="ev">message_delta + message_stop</span><span class="desc">stop_reason \u4e0e usage</span></li>
+</ul>
+<div class="pair">
+<div class="pair-card"><h4>\u534a\u622a\u6807\u7b7e</h4><p>\u7f13\u51b2 + couldBeTag / safeCut\uff0c\u907f\u514d\u6807\u7b7e\u5b57\u7b26\u6cc4\u6f0f\u3002</p></div>
+<div class="pair-card"><h4>\u601d\u8003\u4e0e\u6587\u672c</h4><p>pendingThinking \u5148 flush\uff0c\u518d\u5f00 text \u5757\u3002</p></div>
+<div class="pair-card"><h4>\u5de5\u5177\u589e\u91cf</h4><p>\u6309 index \u7ef4\u62a4 Map\uff0c\u62fc arguments\uff0c\u53d1 input_json_delta\u3002</p></div>
+<div class="pair-card"><h4>web_search</h4><p>\u72b6\u6001\u673a pause\uff0c\u7f51\u5173\u81ea\u641c\u540e\u4ee5 Anthropic \u5757\u7eed\u6d41\u3002</p></div>
+</div>
+<h2>\u4e00\u53e5\u8bdd</h2>
+<p>\u7f51\u5173\u4e0d\u589e\u5f3a\u6a21\u578b\u80fd\u529b\u3002\u5b83\u505a<strong>\u7ed3\u6784\u5bf9\u9f50</strong>\u3001<strong>\u6d41\u5f0f\u72b6\u6001\u673a</strong>\u3001<strong>\u8bed\u4e49\u8865\u9f50</strong>\u3002Claude Code \u4ee5\u4e3a\u5728\u8ddf Anthropic \u8bf4\u8bdd\uff0c\u5b9e\u9645\u4e0a\u8bf7\u6c42\u5df2\u5b8c\u6574\u7ffb\u8bd1\u6210 OpenAI \u683c\u5f0f\uff0c\u53d1\u5f80\u4efb\u610f\u517c\u5bb9\u4e0a\u6e38\u3002</p>
+<hr class="rule"/>
+<p style="color:var(--muted);font-size:15px;max-width:var(--measure)">\u5bf9\u7167\u4ee3\u7801\u4ece <code>convertMessages</code>\u3001<code>buildOpenAIRequestBody</code>\u3001<code>convertResponse</code>\u3001<code>StreamConverter</code> \u8bfb\u8d77\u3002</p>
+</article>
+<footer><div class="repo">\u4ed3\u5e93\uff1a<a href="https://github.com/1parado/claude-openai-gateway" target="_blank" rel="noopener">github.com/1parado/claude-openai-gateway</a><br/><br/>\u8bb2\u89e3\u9875\u6309\u516c\u5f00\u4ee3\u7801\u6574\u7406\uff0c\u4ec5\u4f9b\u7406\u89e3\u534f\u8bae\u8f6c\u6362\u539f\u7406\u3002</div></footer>
+</body>
+</html>
