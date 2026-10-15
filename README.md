@@ -4,6 +4,7 @@ Anthropic `/v1/messages` ↔ OpenAI `chat/completions` 双向协议网关 + magp
 零依赖，Node >= 18 单文件网关（`gateway.mjs`），前端为纯静态单页（`ui/index.html`）。
 
 - 本目录为**现役套件**（网关 + WebUI + CLI 包装器 + 测试）。
+- **协议转换原理讲解页**：[docs](https://1parado.github.io/claude-openai-gateway/)（Chloé Maillot 风格笔记）
 
 ## 快速启动
 
