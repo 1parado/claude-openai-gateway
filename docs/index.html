@@ -1,9 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claude \u2194 OpenAI \u534f\u8bae\u7f51\u5173 \u00b7 \u539f\u7406\u7b14\u8bb0</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Claude ↔ OpenAI 协议网关 · 原理笔记</title>
+<link rel="stylesheet" href="styles.css"/>
 </head>
-<body><p>placeholder - will update</p></body>
+<body>
+<p id="s" style="font-family:system-ui;color:#6b6b6b;padding:2rem">Loading…</p>
+<script>
+(async () => {
+  const parts = ['page.b64.0', 'page.b64.1', 'page.b64.2'];
+  const texts = await Promise.all(parts.map(p => fetch(p).then(r => r.text())));
+  const b64 = texts.join('');
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const html = new TextDecoder().decode(bin);
+  document.open(); document.write(html); document.close();
+})().catch(e => { document.getElementById('s').textContent = 'Load failed: ' + e; });
+</script>
+</body>
 </html>
