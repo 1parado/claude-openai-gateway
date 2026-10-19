@@ -1385,9 +1385,9 @@ async function handleCountTokens(req, res) {
  * 请求进来按哈希反解回上游原名（见 resolveModel）。
  */
 const MODEL_CATALOG = [
-  { id: 'claude-sonnet-4-5-20250929', display: 'Sonnet 4.5 (gateway default)', tier: 'sonnet' },
-  { id: 'claude-opus-4-1', display: 'Opus 4.1 (gateway big)', tier: 'opus' },
-  { id: 'claude-haiku-4-5', display: 'Haiku 4.5 (gateway small)', tier: 'haiku' },
+  { id: 'claude-sonnet-5-5', display: 'Sonnet 5.5 (gateway default)', tier: 'sonnet' },
+  { id: 'claude-opus-5-5', display: 'Opus 5.5 (gateway big)', tier: 'opus' },
+  { id: 'claude-haiku-5-5', display: 'Haiku 5.5 (gateway small)', tier: 'haiku' },
 ];
 
 // ---- Claude Desktop 模型 ID 校验（照搬 magpie internal/gateway/desktop.go）----
@@ -1459,12 +1459,15 @@ async function refreshUpstreamModels(force = false) {
 /**
  * 上下文窗口（magpie 同款三字段输出给客户端）：
  * config.contextWindows[模型id] > 上游自报 context_length > config.contextWindows.default
+ * config.contextWindows.override = true 时跳过上游自报（全部按 config 标注值广播，用于给小窗口模型强标 1M）
  */
 function contextWindowFor(id) {
   const cw = config.contextWindows || {};
   if (cw[id]) return cw[id];
-  const inf = upstreamModelCache.info?.[id];
-  if (inf?.context) return inf.context;
+  if (!cw.override) {
+    const inf = upstreamModelCache.info?.[id];
+    if (inf?.context) return inf.context;
+  }
   return cw.default ?? null;
 }
 
@@ -1500,8 +1503,11 @@ function slotTargetModel(slotId) {
 async function handleModelById(req, res, id) {
   await refreshUpstreamModels();
   const ids = upstreamModelCache.ids;
-  const bare = id.replace(/\[1m\]$/i, ''); // [1m] 变体按去掉后缀的原模型应答
-  const hit = ids.find((x) => x === bare)
+  const bare = id.replace(/\[1m\]$/i, '').replace(/^anthropic\//i, ''); // [1m] 变体按去后缀原模型应答；无前缀 magpie id 也按别名应答
+  const bareAlias = bare.match(/^magpie-(\d{10})$/i); // 无 anthropic/ 前缀的 magpie-<hash>（1M 变体 id 形式）
+  const bareAliasHit = bareAlias ? ids.find((x) => aliasNumber(x) === bareAlias[1]) : null;
+  const hit = bareAliasHit
+    || ids.find((x) => x === bare)
     || ids.find((x) => aliasFor(x) === bare || slugForModel(x) === bare.toLowerCase() || x.replace(/^[^:]*:/, '') === bare)
     || MODEL_CATALOG.find((m) => m.id === bare);
   if (!hit) return anthropicError(res, 404, 'not_found_error', `model not found: ${id}`);
@@ -1555,12 +1561,14 @@ async function handleModels(req, res) {
       ...fields,
     });
     // 桌面端把紧跟裸行的 [1m] 行折叠为 "XXX (…[1m])" 一个条目（1M 窗口）；
-    // 显式给行比依赖桌面端自己按 max_input_tokens 生成可靠（新版只认 supports_1m）
+    // 显式给行比依赖桌面端自己按 max_input_tokens 生成可靠（新版只认 supports_1m）。
+    // 1M 变体 id 不带 "anthropic/" 前缀：带斜杠 id 的 [1m] 行会被桌面端过滤掉，
+    // 而请求侧 resolveModel 本来就兼容无前缀的 magpie-<hash> 形式
     if ((fields.max_input_tokens || 0) >= 1_000_000) {
       data.push({
         type: 'model',
         object: 'model',
-        id: alias + '[1m]',
+        id: alias.replace(/^anthropic\//, '') + '[1m]',
         display_name: prettyModelName(id),
         description: 'via claude-openai-gateway (1M context window)',
         created_at: now,
