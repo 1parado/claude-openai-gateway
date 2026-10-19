@@ -25,6 +25,7 @@ import net from 'node:net';
 import tls from 'node:tls';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -413,6 +414,52 @@ function sanitizeToolSequence(messages) {
   return messages.filter((m) => m.role !== 'tool' || issued.has(m.tool_call_id));
 }
 
+/**
+ * 会话标识（前缀缓存修复，P0 费用优化）：
+ *
+ * 上游服务端支持 prompt_cache_key：前缀缓存按会话键分片（实测同段前缀命中
+ * 可省 ~17× 费用），且该键同时用作粘性路由键（同一会话钉同一上游账号）。
+ * 若出站 body 带 conversation_id，上游面板会据此派生会话级缓存键；此前网关
+ * 构造 OpenAI 请求体时不带任何会话标识，导致同一账号的所有会话/子代理请求
+ * 共用一个兜底键，上游缓存分片互相覆盖 → 大前缀整段 miss 重算。
+ *
+ * 派生规则：
+ *  - 客户端自带 metadata.conversation_id / conversationId → 直接透传；
+ *  - 否则用「system + 首条 user 消息 (+ metadata.user_id)」的内容哈希派生：
+ *    会话历史只追加、开头不变 → 派生 id 跨轮稳定，且跨网关重启稳定；
+ *  - 不掺 model：thinking / 非 thinking 变体同属一会话，粘到同一账号
+ *    （上游缓存本身按模型隔离，无需在此区分）。
+ *
+ * 可用 config.injectConversationId === false 关闭。
+ */
+
+function canonicalText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) return content.map((b) => (b && typeof b === 'object' ? (b.text ?? '') : '')).join('\n');
+  return '';
+}
+
+function resolveConversationId(anthropicBody) {
+  if (config.injectConversationId === false) return undefined;
+  const meta = anthropicBody.metadata || {};
+  const explicit = meta.conversation_id ?? meta.conversationId;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+  const system = canonicalText(anthropicBody.system);
+  const firstUser = (anthropicBody.messages || []).find((m) => m?.role === 'user');
+  const first = firstUser ? canonicalText(firstUser.content) : '';
+  if (!system && !first) return undefined; // 空会话（无 system 且无 user 消息）不打标识
+  const sig = crypto
+    .createHash('sha256')
+    .update(system)
+    .update('\u0000')
+    .update(first)
+    .update('\u0000')
+    .update(typeof meta.user_id === 'string' ? meta.user_id : '')
+    .digest('hex')
+    .slice(0, 24);
+  return 'gw-' + sig;
+}
+
 /** 构造发往上游的 OpenAI 请求体 */
 function buildOpenAIRequestBody(anthropicBody) {
   const wantThink = !!(anthropicBody.thinking && anthropicBody.thinking.type === 'enabled');
@@ -422,6 +469,8 @@ function buildOpenAIRequestBody(anthropicBody) {
     stream: !!anthropicBody.stream,
     max_tokens: Math.min(anthropicBody.max_tokens || 4096, config.maxTokensLimit || 32768),
   };
+  const convId = resolveConversationId(anthropicBody);
+  if (convId) body.conversation_id = convId;
   if (anthropicBody.temperature !== undefined) body.temperature = anthropicBody.temperature;
   if (anthropicBody.top_p !== undefined) body.top_p = anthropicBody.top_p;
   if (anthropicBody.stop_sequences?.length) body.stop = anthropicBody.stop_sequences;

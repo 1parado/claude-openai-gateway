@@ -3,6 +3,8 @@ config.json
 # 含上游 API Key
 claude-profile/
 # CLI 隔离档案（本地会话历史、机器 ID、插件缓存）
+.workbuddy/
+# 本地 AI 工作记忆（会话日志，可能含本机路径与账号信息）
 
 # 运行时产物
 logs/
