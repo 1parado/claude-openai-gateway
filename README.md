@@ -1,7 +1,7 @@
 # claude-gateway-ui
 
 Anthropic `/v1/messages` ↔ OpenAI `chat/completions` 双向协议网关 + magpie 风格极简 WebUI。
-零依赖，Node >= 18 单文件网关（`gateway.mjs`），前端为纯静态单页（`ui/index.html`）。
+零依赖，Node >= 18，网关入口为 `gateway.mjs`，供应商配置逻辑为 `providers.mjs`，前端为 `ui/` 下的纯静态单页。
 
 - 本目录为**现役套件**（网关 + WebUI + CLI 包装器 + 测试）。
 - **协议转换原理讲解页**：[docs](https://1parado.github.io/claude-openai-gateway/)（Chloé Maillot 风格笔记）
@@ -17,19 +17,32 @@ node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
 ```
 
 - WebUI：<http://127.0.0.1:8787/ui>（`/` 同样直达）
-- 健康：`GET /health`
-- Claude Code CLI（可选）：目录内 `claude.cmd`（cmd/PowerShell）/ `claude`（Git Bash）是智能路由包装器——网关在线走网关，离线回落你原有的 claude 配置。**首次使用前**把 `examples/claude-profile-settings.json` 复制为 `claude-profile/settings.json`（`env` 里的模型名可改成你 `config.json` 中配置的别名）
-- Claude 桌面端：把桌面端的自定义网关（inference gateway）地址指向 `http://127.0.0.1:8787`、API Key 随意（`config.gatewayApiKey` 为空时不校验），模型列表会从网关自动发现
+- 首次启动无需手动创建 `config.json`：进入 **供应商** 页面，添加 URL、API Key，获取模型并选择 **保存并启用**。
+- 健康：`GET /health`；服务仅监听本机 `127.0.0.1`。
+- Claude Code CLI：在供应商页面点击 **生成 Claude Code 专用配置**，然后在项目目录执行 `sh ./claude`（Git Bash / macOS / Linux）或 `.\claude.cmd`（PowerShell）。包装器会读取 `claude-profile/settings.json` 中的地址，在线走网关，离线回落原有配置。重复生成会合并原设置，并备份为 `settings.json.bak`。
+- 支持自定义推理网关的 Claude 客户端：把 inference gateway 地址指向 `http://127.0.0.1:8787`；`gatewayApiKey` 为空时 Key 可填 `local-gateway`，否则使用配置中的网关 Key。模型目录由网关提供。
 
 ## WebUI 功能（http://127.0.0.1:8787/ui）
 
 | 页面 | 功能 |
 |---|---|
 | 概览 | 今日请求 / 输入 / 输出 tokens、缓存命中率、错误数、web_search 次数；近 14 天用量柱状图；按模型统计表；网关信息 |
+| 供应商 | 添加 / 编辑 / 删除上游，自动获取模型，可搜索选择或手填默认、轻量、主力、思考模型；一键启用，无需重启；生成 Claude Code 专用配置 |
 | 请求日志 | 最近请求明细（模型路由、流式/思考/工具标签、tokens、耗时、状态码），5s 自动刷新，一键清空 |
 | Token 计数 | 系统提示 + 文本粘贴 → 走 `/v1/messages/count_tokens` 实时估算（CJK ≈1 字/token），附字符/词数统计 |
 
 浅色/深色跟随系统，右上角可手动切换（记忆选择）。
+
+### 供应商接入说明
+
+1. 填写名称、上游 URL 和 Key。本地免密服务勾选「本地服务 / 免密访问」。域名自动补 `/v1`；`/chat/completions` 和 `/models` 后缀会自动移除；其他自定义路径保留。
+2. 点击「获取模型」，从默认模型输入框的候选列表选择模型。其他槽位留空使用默认模型。没有模型列表权限时，可直接填写供应商提供的模型 ID。
+3. 点击「保存并启用」。也可只保存，再从供应商卡片点击「启用」。切换后新请求使用新供应商，进行中的请求及其重试继续使用原上游。
+4. 在下方生成 Claude Code 专用配置并通过项目包装器启动。后续切换供应商无需再次生成配置。更改网关端口或 `gatewayApiKey` 后需重新生成。
+
+当前支持 **OpenAI Chat Completions 兼容上游**（`/models`、`/chat/completions`）。原生 Anthropic Messages、仅 Responses API 的服务需要另加适配器；用于 Claude 编程的模型需要支持工具调用。
+
+供应商及 Key 保存在本机 `config.json`（已被 git 忽略）；管理 API 只返回 `hasApiKey`，编辑留空保留已存 Key。更换上游 URL 时需要重新填写 Key 或显式选择免密。原有单上游配置会作为「原有上游」加载，首次保存后迁移为多供应商配置；高级配置保留。
 
 ## 请求日志与保留策略
 
@@ -42,10 +55,20 @@ node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
 - `GET /admin/stats` —— 聚合统计（today / total / byModel / daily）
 - `GET /admin/logs?limit=100` —— 最近日志
 - `POST /admin/logs/clear` —— 清空全部日志
+- `GET /admin/providers` —— 供应商列表与当前启用项（不返回 Key）
+- `POST /admin/providers` —— 新增或编辑供应商（编辑提交 `id`）
+- `POST /admin/providers/discover` —— 通过 URL、Key 获取模型
+- `POST /admin/providers/:id/activate` —— 启用供应商
+- `DELETE /admin/providers/:id` —— 删除非当前供应商
+- `POST /admin/claude-profile` —— 合并生成项目内的 Claude Code 专用配置
+
+管理接口校验本机连接、Host 与 Origin；写入请求使用 `application/json`。不对外开放跨域管理。
 
 ## 配置（config.json）
 
-新用户：**复制 `config-template.json` 为 `config.json`**，按其中 `_说明` 字段逐项填写（带 `_` 前缀的键只是注释，网关会忽略）。`config.json` 含 API Key，已被 `.gitignore` 排除，不要提交。
+可在供应商页面自动生成配置；需要高级选项时，也可**复制 `config-template.json` 为 `config.json`**，按其中 `_说明` 字段填写（带 `_` 前缀的键只是注释）。`config.json` 含 API Key，已被 `.gitignore` 排除。供应商页面的修改立即生效，手工修改配置文件后需重启。
+
+启用供应商后，`providers` 保存完整列表，`activeProviderId` 指向启用项；顶层 `upstreamBaseUrl`、`upstreamApiKey`、`models`、`modelAliases` 自动同步为启用项。其他高级选项仍为网关全局设置。
 
 `port`、`upstreamBaseUrl`、`upstreamApiKey`、`models`（small/default/big/think）、`modelAliases`、`thinking`（budget_tokens→reasoning_effort 分档）、`webSearch.enabled`、`upstreamRetries`、`logs.retentionHours` 等。
 
@@ -68,6 +91,7 @@ node gateway.mjs        # 或指定端口 PORT=9000 node gateway.mjs
 ## 测试
 
 ```bash
+node --test test/providers.test.mjs # 隔离配置 + 模拟上游，无需真实 Key
 node test/run-tests.mjs          # 25 项端到端
 node test/verify-review-fixes.mjs # 12 项抽查
 node test/verify-interleaved.mjs  # 交错推理流式回归

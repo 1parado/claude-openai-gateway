@@ -2,7 +2,8 @@
 # claude smart-router wrapper (Git Bash / POSIX sh), portable.
 # gateway (8787) online -> launch with isolated profile (claude-profile)
 # gateway offline       -> launch plain, use default ~/.claude config
-if curl -s -m 2 --noproxy '*' http://127.0.0.1:8787/health >/dev/null 2>&1; then
+gateway_url="$(node "$(dirname "$0")/claude-route.mjs" 2>/dev/null)"
+if curl -fsS -m 2 --noproxy '*' "${gateway_url:-http://127.0.0.1:8787}/health" >/dev/null 2>&1; then
   CLAUDE_CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)/claude-profile"
   export CLAUDE_CONFIG_DIR
 fi

@@ -1,10 +1,22 @@
 # 敏感信息 —— 不要提交
 config.json
+config.json.*.tmp
+config.json.bak
+config.json.backup
 # 含上游 API Key
 claude-profile/
 # CLI 隔离档案（本地会话历史、机器 ID、插件缓存）
 .workbuddy/
 # 本地 AI 工作记忆（会话日志，可能含本机路径与账号信息）
+.env
+.env.*
+!.env.example
+!.env.template
+
+# 本地工作笔记与浏览器调试输出
+/notes.md
+/task_plan.md
+.playwright-cli/
 
 # 运行时产物
 logs/

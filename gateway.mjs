@@ -27,14 +27,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { ProviderStore, ProviderError, cleanCatalog, writeJsonAtomic } from './providers.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = path.join(__dirname, 'config.json');
-const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+const CONFIG_PATH = path.resolve(process.env.GATEWAY_CONFIG || path.join(__dirname, 'config.json'));
+const providerStore = new ProviderStore(CONFIG_PATH);
+const config = providerStore.config;
 
 const PORT = Number(process.env.PORT || config.port || 8787);
-const UPSTREAM = (config.upstreamBaseUrl || '').replace(/\/+$/, '');
-const UPSTREAM_KEY = config.upstreamApiKey || '';
+const currentUpstream = () => providerStore.upstream;
 const LOG = config.logRequests !== false;
 const STARTED_AT = Date.now();
 
@@ -99,13 +100,13 @@ function drainBody(stream) {
  * 尊重上游 retry-after 头；"模型不存在"类永久错误不重试快速失败。
  * 只在向客户端写出任何字节之前使用。
  */
-async function callUpstreamWithRetry(openaiBody) {
+async function callUpstreamWithRetry(openaiBody, upstream) {
   const retries = Number.isFinite(config.upstreamRetries) ? config.upstreamRetries : 2;
   let last = { resp: null, errText: 'upstream unreachable', headers: {} };
   for (let attempt = 0; attempt <= retries; attempt++) {
     let resp = null;
     try {
-      resp = await upstreamRequest('POST', `${UPSTREAM}/chat/completions`, openaiBody);
+      resp = await upstreamRequest('POST', `${upstream.baseUrl}/chat/completions`, openaiBody, upstream);
     } catch (e) {
       last = { resp: null, errText: e.message, headers: {} };
     }
@@ -861,23 +862,35 @@ class StreamConverter {
 // 上游调用（node:http 直连；若存在 HTTP_PROXY 环境变量则走标准正向代理）
 // ---------------------------------------------------------------------------
 
-import { request as httpRequest } from 'node:http';
-
-function upstreamRequest(method, urlStr, bodyObj) {
+async function upstreamRequest(method, urlStr, bodyObj, upstream = currentUpstream(), timeoutMs = (config.requestTimeoutSeconds || 300) * 1000) {
   const target = new URL(urlStr);
-  const proxy = process.env.HTTP_PROXY || process.env.http_proxy || process.env.HTTPS_PROXY || process.env.https_proxy;
+  const isHttps = target.protocol === 'https:';
+  const bypass = ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) ||
+    (process.env.NO_PROXY || process.env.no_proxy || '').split(',').some(entry => {
+      const value = entry.trim().toLowerCase();
+      return value === '*' || value === target.host.toLowerCase() || value === target.hostname.toLowerCase() ||
+        (value.startsWith('.') && target.hostname.toLowerCase().endsWith(value));
+    });
+  const proxy = bypass ? '' : proxyEnv();
   const bodyStr = bodyObj ? JSON.stringify(bodyObj) : null;
   const headers = {
-    authorization: `Bearer ${UPSTREAM_KEY}`,
+    ...(upstream.apiKey ? { authorization: `Bearer ${upstream.apiKey}` } : {}),
     'content-type': 'application/json',
     ...(bodyStr ? { 'content-length': Buffer.byteLength(bodyStr) } : {}),
   };
-  const opts = proxy
+  const opts = proxy && !isHttps
     ? (() => { const p = new URL(proxy); return { host: p.hostname, port: p.port || 80, path: target.href, headers: { ...headers, host: target.host } }; })()
-    : { host: target.hostname, port: target.port || 80, path: target.pathname + target.search, headers };
+    : { host: target.hostname.replace(/^\[|\]$/g, ''), port: target.port || (isHttps ? 443 : 80), path: target.pathname + target.search, headers };
+  let tunnel;
+  if (proxy && isHttps) tunnel = await connectTunneled(target.hostname, Number(target.port) || 443);
+  const tunnelAgent = tunnel ? new https.Agent({ keepAlive: false }) : undefined;
+  if (tunnelAgent) tunnelAgent.createConnection = () => tunnel;
   return new Promise((resolve, reject) => {
-    const req = httpRequest({ method, ...opts }, (res) => resolve(res));
-    req.setTimeout((config.requestTimeoutSeconds || 300) * 1000, () => req.destroy(new Error('upstream timeout')));
+    const lib = isHttps ? https : http;
+    const req = lib.request({ method, ...opts, ...(tunnelAgent ? { agent: tunnelAgent } : {}) }, resolve);
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('upstream timeout')));
+    const deadline = setTimeout(() => req.destroy(new Error('upstream timeout')), timeoutMs);
+    req.once('close', () => clearTimeout(deadline));
     req.on('error', reject);
     if (bodyStr) req.write(bodyStr);
     req.end();
@@ -885,15 +898,21 @@ function upstreamRequest(method, urlStr, bodyObj) {
 }
 
 /** 收集完整 JSON 响应 */
-function readJsonResponse(stream) {
+function readJsonResponse(stream, maxBytes = 32 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    stream.on('data', (c) => chunks.push(c));
+    let bytes = 0;
+    stream.on('data', (c) => {
+      bytes += c.length;
+      if (bytes > maxBytes) { stream.destroy(new Error('upstream response too large')); return; }
+      chunks.push(c);
+    });
     stream.on('end', () => {
       try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
       catch (e) { reject(new Error(`invalid upstream JSON: ${e.message}`)); }
     });
     stream.on('error', reject);
+    stream.on('aborted', () => reject(new Error('upstream response aborted')));
   });
 }
 
@@ -908,16 +927,23 @@ function connectTunneled(host, port) {
   const proxy = new URL(proxyEnv());
   return new Promise((resolve, reject) => {
     const socket = net.connect({ host: proxy.hostname, port: Number(proxy.port) || 80 });
+    socket.setTimeout(15000, () => socket.destroy(new Error('proxy CONNECT timeout')));
     socket.once('error', reject);
     socket.once('connect', () => {
       socket.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\n\r\n`);
+      let response = Buffer.alloc(0);
       const onData = (buf) => {
-        if (!/^HTTP\/1\.[01] 200/.test(buf.toString('utf8'))) {
+        response = Buffer.concat([response, buf]);
+        const end = response.indexOf('\r\n\r\n');
+        if (end === -1 && response.length < 16384) return;
+        if (end === -1 || !/^HTTP\/1\.[01] 200/.test(response.toString('utf8'))) {
           socket.destroy();
           return reject(new Error('proxy CONNECT failed'));
         }
         socket.removeListener('data', onData);
+        if (response.length > end + 4) socket.unshift(response.subarray(end + 4));
         const tlsSock = tls.connect({ socket, servername: host }, () => resolve(tlsSock));
+        tlsSock.setTimeout(15000, () => tlsSock.destroy(new Error('proxy TLS timeout')));
         tlsSock.once('error', reject);
       };
       socket.on('data', onData);
@@ -1035,7 +1061,7 @@ function hitsForModel(hits) {
 // 请求日志与用量统计（WebUI 数据源）：内存缓冲 + 按天 JSONL 落盘 + 自动过期
 // ---------------------------------------------------------------------------
 
-const LOGS_DIR = path.join(__dirname, 'logs');
+const LOGS_DIR = path.join(path.dirname(CONFIG_PATH), 'logs');
 const LOG_RETENTION_HOURS = Math.max(1, Number(config.logs?.retentionHours ?? 24));
 const LOG_MEM_MAX = Math.max(50, Number(config.logs?.maxMemoryEntries ?? 500));
 const logMem = [];
@@ -1162,10 +1188,19 @@ function checkAuth(req, res) {
   return false;
 }
 
-async function readBody(req) {
-  const chunks = [];
-  for await (const c of req) chunks.push(c);
-  return Buffer.concat(chunks).toString('utf8');
+function readBody(req, maxBytes = 32 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > maxBytes) { chunks.length = 0; reject(new ProviderError('请求体过大', 413)); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+    req.on('aborted', () => reject(new Error('request aborted')));
+  });
 }
 
 async function handleMessages(req, res, urlObj) {
@@ -1176,6 +1211,8 @@ async function handleMessages(req, res, urlObj) {
     return anthropicError(res, 400, 'invalid_request_error', 'model and non-empty messages are required');
   }
 
+  const upstream = currentUpstream();
+  if (!upstream.baseUrl || !config.models?.default) return anthropicError(res, 503, 'api_error', '请先在控制台添加并启用供应商');
   const { body: baseBody, webSearch } = buildOpenAIRequestBody(body);
   const maxRounds = webSearch ? (webSearch.maxUses || 5) : 0; // 内部 web_search 最大轮数
   const beta = req.headers['anthropic-beta'];
@@ -1193,7 +1230,7 @@ async function handleMessages(req, res, urlObj) {
     const extraBlocks = [];
     let sumPrompt = 0, sumCompletion = 0, sumCached = 0;
     for (let round = 0; ; round++) {
-      const { resp, errText, headers } = await callUpstreamWithRetry(roundBody);
+      const { resp, errText, headers } = await callUpstreamWithRetry(roundBody, upstream);
       if (!resp) { noteStats(res, { status: 502, error: errText?.slice(0, 200) }); return anthropicError(res, 502, 'api_error', `upstream request failed: ${errText}`); }
       if (resp.statusCode !== 200) { noteStats(res, { status: resp.statusCode, error: errText?.slice(0, 200) }); return upstreamErrorToAnthropic(res, resp.statusCode, errText, headers); }
       const data = await readJsonResponse(resp);
@@ -1289,7 +1326,7 @@ async function handleMessages(req, res, urlObj) {
   try {
     let roundBody = baseBody;
     for (let round = 0; ; round++) {
-      const { resp, errText, headers } = await callUpstreamWithRetry(roundBody);
+      const { resp, errText, headers } = await callUpstreamWithRetry(roundBody, upstream);
       if (!resp || resp.statusCode !== 200) {
         return emitStreamError(res, resp?.statusCode, errText, headers); // Anthropic SSE error 事件，客户端 SDK 会重试
       }
@@ -1417,43 +1454,58 @@ function aliasFor(id) {
   return DESKTOP_ALIAS + aliasNumber(id);
 }
 
-/** 上游模型缓存（TTL 60s），resolveModel 反解时使用 */
+/** 上游模型缓存（TTL 15 分钟），resolveModel 反解时使用 */
 const upstreamModelCache = { ids: [], info: {}, at: 0 };
-const UPSTREAM_MODELS_TTL = 60_000;
+const UPSTREAM_MODELS_TTL = 15 * 60_000;
 let modelsRefreshInflight = null;
+let providerRevision = 0;
+
+function resetModelCache() {
+  providerRevision++;
+  modelsRefreshInflight = null;
+  const catalog = providerStore.active?.catalog || [];
+  upstreamModelCache.ids = [...new Set([...catalog.map(m => m.id), ...Object.values(config.models || {})].filter(Boolean))];
+  upstreamModelCache.info = Object.fromEntries(catalog.map(m => [m.id, { context: m.context_length, output: m.max_output_tokens }]));
+  upstreamModelCache.at = 0;
+}
+
+async function discoverModels(upstream) {
+  const response = await upstreamRequest('GET', `${upstream.baseUrl}/models`, null, upstream, 15000);
+  if (response.statusCode !== 200) {
+    response.resume();
+    throw new ProviderError(`获取模型失败（HTTP ${response.statusCode}），请检查 URL、Key 和模型列表权限`, 502);
+  }
+  let data;
+  try { data = await readJsonResponse(response, 2 * 1024 * 1024); }
+  catch { throw new ProviderError('上游未返回有效 JSON 模型列表，请检查 URL，或手动填写模型 ID', 502); }
+  return cleanCatalog(data.data);
+}
 
 async function refreshUpstreamModels(force = false) {
+  const upstream = currentUpstream();
+  if (!upstream.baseUrl) return upstreamModelCache.ids;
   if (!force && Date.now() - upstreamModelCache.at < UPSTREAM_MODELS_TTL) return upstreamModelCache.ids;
   if (modelsRefreshInflight) return modelsRefreshInflight; // 并发请求去重
-  modelsRefreshInflight = (async () => {
+  const revision = providerRevision;
+  const pending = (async () => {
     try {
-      const r = await upstreamRequest('GET', `${UPSTREAM}/models`, null);
-      const data = await readJsonResponse(r);
-      const ids = [];
-      const info = {};
-      for (const m of data.data || []) {
-        const id = typeof m === 'string' ? m : m.id;
-        if (!id) continue;
-        ids.push(id);
-        if (typeof m === 'object') {
-          info[id] = {
-            context: m.context_length || m.max_allowed_size || null, // 上游自报上下文窗口
-            output: m.max_output_tokens || null,
-          };
-        }
-      }
+      const catalog = await discoverModels(upstream);
+      if (revision !== providerRevision) return upstreamModelCache.ids;
+      const ids = [...new Set([...catalog.map(m => m.id), ...Object.values(config.models || {})].filter(Boolean))];
+      const countChanged = ids.length !== upstreamModelCache.ids.length;
       upstreamModelCache.ids = ids;
-      upstreamModelCache.info = info;
+      upstreamModelCache.info = Object.fromEntries(catalog.map(m => [m.id, { context: m.context_length, output: m.max_output_tokens }]));
       upstreamModelCache.at = Date.now();
-      log(`[models] upstream 返回 ${ids.length} 个模型`);
+      if (countChanged) log(`[models] upstream 返回 ${ids.length} 个模型`);
     } catch (e) {
       log('[models] 上游模型发现失败:', e.message);
     } finally {
-      modelsRefreshInflight = null;
+      if (revision === providerRevision) modelsRefreshInflight = null;
     }
     return upstreamModelCache.ids;
   })();
-  return modelsRefreshInflight;
+  modelsRefreshInflight = pending;
+  return pending;
 }
 
 /**
@@ -1611,11 +1663,90 @@ async function handleModels(req, res) {
   res.end(JSON.stringify({ data, first_id: data[0]?.id ?? null, has_more: false, last_id: data[data.length - 1]?.id ?? null }));
 }
 
+function jsonResponse(res, body, status = 200) {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+function checkLocalAdmin(req, res) {
+  const remote = req.socket.remoteAddress?.replace(/^::ffff:/, '');
+  const allowed = new Set([`127.0.0.1:${req.socket.localPort}`, `localhost:${req.socket.localPort}`, `[::1]:${req.socket.localPort}`]);
+  let validOrigin = !req.headers.origin;
+  if (req.headers.origin) {
+    try { const origin = new URL(req.headers.origin); validOrigin = origin.protocol === 'http:' && allowed.has(origin.host); } catch { /* reject */ }
+  }
+  if (!['127.0.0.1', '::1'].includes(remote) || !allowed.has(req.headers.host) || !validOrigin || req.headers['sec-fetch-site'] === 'cross-site') {
+    anthropicError(res, 403, 'permission_error', '管理接口仅允许本机同源访问');
+    return false;
+  }
+  if (req.method !== 'GET' && req.method !== 'OPTIONS' && !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) {
+    anthropicError(res, 415, 'invalid_request_error', '请使用 application/json');
+    return false;
+  }
+  return true;
+}
+
+async function handleProviderAdmin(req, res, p) {
+  const state = () => ({ ...providerStore.list(), connection: {
+    baseUrl: `http://127.0.0.1:${req.socket.localPort}`, gatewayKeyRequired: !!config.gatewayApiKey,
+    profilePath: path.join(path.dirname(CONFIG_PATH), 'claude-profile', 'settings.json'),
+  } });
+  if (p === '/admin/providers' && req.method === 'GET') return jsonResponse(res, state());
+  if (p === '/admin/providers' && req.method === 'POST') {
+    const input = JSON.parse(await readBody(req, 2 * 1024 * 1024));
+    const activeId = providerStore.activeId;
+    const id = providerStore.save(input);
+    if (id === activeId) resetModelCache();
+    return jsonResponse(res, { ...state(), savedId: id });
+  }
+  if (p === '/admin/providers/discover' && req.method === 'POST') {
+    const input = JSON.parse(await readBody(req, 2 * 1024 * 1024));
+    const upstream = providerStore.credentials(input);
+    const catalog = await discoverModels(upstream);
+    return jsonResponse(res, { catalog });
+  }
+  const match = p.match(/^\/admin\/providers\/([^/]+)(?:\/(activate))?$/);
+  if (match && req.method === 'POST' && match[2]) {
+    providerStore.activate(decodeURIComponent(match[1]));
+    resetModelCache();
+    return jsonResponse(res, state());
+  }
+  if (match && req.method === 'DELETE' && !match[2]) {
+    providerStore.remove(decodeURIComponent(match[1]));
+    return jsonResponse(res, state());
+  }
+  if (p === '/admin/claude-profile' && req.method === 'POST') {
+    if (!providerStore.active) throw new ProviderError('请先启用供应商');
+    const profileDir = path.join(path.dirname(CONFIG_PATH), 'claude-profile');
+    const profilePath = path.join(profileDir, 'settings.json');
+    const previous = fs.existsSync(profilePath) ? JSON.parse(fs.readFileSync(profilePath, 'utf8')) : {};
+    fs.mkdirSync(profileDir, { recursive: true });
+    if (fs.existsSync(profilePath)) fs.copyFileSync(profilePath, profilePath + '.bak');
+    writeJsonAtomic(profilePath, { ...previous, env: { ...previous.env,
+      ANTHROPIC_BASE_URL: `http://127.0.0.1:${req.socket.localPort}`,
+      ANTHROPIC_AUTH_TOKEN: config.gatewayApiKey || 'local-gateway',
+      ANTHROPIC_MODEL: 'claude-sonnet-4-5',
+      ANTHROPIC_SMALL_FAST_MODEL: 'claude-haiku-4-5',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5',
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-1',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: 'claude-haiku-4-5',
+      ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: 'claude-sonnet-4-5',
+      ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: 'claude-opus-4-1',
+      CLAUDE_CODE_SUBAGENT_MODEL: 'claude-sonnet-4-5',
+    } });
+    return jsonResponse(res, { ok: true, profilePath });
+  }
+  throw new ProviderError('管理接口不存在', 404);
+}
+
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://127.0.0.1:${PORT}`);
-  const p = urlObj.pathname.replace(/\/+$/, '');
+  const p = urlObj.pathname.replace(/\/+$/, '') || '/';
   try {
+    if (p.startsWith('/admin/') && !checkLocalAdmin(req, res)) return;
     if (req.method === 'OPTIONS') {
+      if (p.startsWith('/admin/')) { res.writeHead(204); return res.end(); }
       res.writeHead(204, {
         'access-control-allow-origin': '*',
         'access-control-allow-headers': '*',
@@ -1626,12 +1757,20 @@ const server = http.createServer(async (req, res) => {
 
     // ---- 本地管理面（WebUI + admin API）：本机使用，不做 API key 校验 ----
     if (p === '/' || p === '/ui' || p.startsWith('/ui/')) return serveStatic(res, p);
+    if (p === '/admin/providers' || p.startsWith('/admin/providers/') || p === '/admin/claude-profile') {
+      try { return await handleProviderAdmin(req, res, p); }
+      catch (e) {
+        const status = e instanceof ProviderError ? e.status : e instanceof SyntaxError ? 400 : 500;
+        return anthropicError(res, status, status >= 500 ? 'api_error' : 'invalid_request_error',
+          e instanceof ProviderError ? e.message : e instanceof SyntaxError ? 'JSON 格式不正确' : '操作失败，请检查上游连接或配置文件写入权限');
+      }
+    }
     if (p === '/health') {
       const ageSec = upstreamModelCache.at ? Math.round((Date.now() - upstreamModelCache.at) / 1000) : null;
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({
         status: 'ok',
-        upstream: UPSTREAM,
+        upstream: currentUpstream().baseUrl,
         models: config.models,
         upstreamModelsCached: upstreamModelCache.ids.length,
         upstreamLastFetchAgoSec: ageSec,
@@ -1645,7 +1784,7 @@ const server = http.createServer(async (req, res) => {
         startedAt: STARTED_AT,
         uptimeSec: Math.round((Date.now() - STARTED_AT) / 1000),
         retentionHours: LOG_RETENTION_HOURS,
-        upstream: UPSTREAM,
+        upstream: currentUpstream().baseUrl,
         models: config.models,
         webSearch: config.webSearch?.enabled !== false,
         ...aggregateStats(entries),
@@ -1703,9 +1842,10 @@ function serveStatic(res, p) {
   });
 }
 
-server.listen(PORT, () => {
+resetModelCache();
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`claude-openai-gateway listening on http://127.0.0.1:${PORT}`);
-  console.log(`upstream: ${UPSTREAM}`);
+  console.log(`upstream: ${currentUpstream().baseUrl || '请在控制台添加供应商'}`);
   console.log(`models: default=${config.models.default} think=${config.models.think}`);
   console.log(`WebUI:    http://127.0.0.1:${PORT}/ui`);
   console.log(`Claude Code: ANTHROPIC_BASE_URL=http://127.0.0.1:${PORT} claude`);

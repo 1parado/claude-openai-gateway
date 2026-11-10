@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gateway 控制台</title>
+<link rel="stylesheet" href="/ui/providers.css">
+<script defer src="/ui/providers.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='8' rx='3' fill='%23e8842c'/%3E%3Crect x='3' y='18' width='26' height='8' rx='3' fill='%23c96a1a'/%3E%3Ccircle cx='8' cy='10' r='1.6' fill='%23fff'/%3E%3Ccircle cx='8' cy='22' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -128,6 +130,7 @@
   <span class="spacer"></span>
   <nav class="seg" id="tabs" aria-label="导航">
     <button data-view="overview" class="on">概览</button>
+    <button data-view="providers">供应商</button>
     <button data-view="logs">请求日志</button>
     <button data-view="counter">Token 计数</button>
   </nav>
@@ -135,6 +138,42 @@
 </header>
 
 <main>
+  <section class="view" id="view-providers" aria-label="供应商管理">
+    <div class="row provider-heading">
+      <div class="grow"><h1>上游供应商</h1><p class="muted">连接你的模型服务，随时切换 Claude 使用的上游。</p></div>
+      <button class="ghost primary" id="newProvider" type="button">＋ 添加供应商</button>
+    </div>
+    <p id="providerStatus" class="provider-status" role="status" aria-live="polite"></p>
+    <div class="provider-layout">
+      <div id="providerList" aria-label="已保存的供应商"><div class="empty">正在加载供应商…</div></div>
+      <form class="panel provider-editor" id="providerForm">
+        <fieldset id="providerFields">
+          <div class="row"><h2 class="grow" id="providerEditorTitle">添加供应商</h2><span class="badge dim">OpenAI 兼容</span></div>
+          <div class="fld"><label for="providerName">供应商名称</label><input id="providerName" maxlength="100" required placeholder="例如：我的中转站" autocomplete="off"></div>
+          <div class="fld"><label for="providerUrl">上游 URL</label><input id="providerUrl" type="url" required placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" aria-describedby="providerUrlHelp"><p class="note" id="providerUrlHelp">填写 API 基础地址。域名自动补 /v1；自定义路径保留。完整 /chat/completions 地址也可粘贴。</p></div>
+          <div class="fld"><label for="providerKey">API Key</label><input id="providerKey" type="password" placeholder="输入上游 API Key" autocomplete="new-password" spellcheck="false"><label class="chk provider-anonymous"><input id="providerNoKey" type="checkbox">本地服务 / 免密访问</label></div>
+          <div class="row"><button class="ghost" id="discoverModels" type="button">获取模型</button><span class="note" id="modelDiscoveryStatus" role="status">获取后可选择，也可直接填写模型 ID。</span></div>
+          <div class="provider-models">
+            <div class="fld"><label for="providerModelDefault">默认模型 · Sonnet</label><input id="providerModelDefault" list="providerModelOptions" required placeholder="选择或填写模型 ID" autocomplete="off"></div>
+            <div class="fld"><label for="providerModelSmall">轻量模型 · Haiku</label><input id="providerModelSmall" list="providerModelOptions" placeholder="留空使用默认模型" autocomplete="off"></div>
+            <div class="fld"><label for="providerModelBig">主力模型 · Opus</label><input id="providerModelBig" list="providerModelOptions" placeholder="留空使用默认模型" autocomplete="off"></div>
+            <div class="fld"><label for="providerModelThink">思考模型</label><input id="providerModelThink" list="providerModelOptions" placeholder="留空使用默认模型" autocomplete="off"></div>
+          </div>
+          <datalist id="providerModelOptions"></datalist>
+          <p class="note">需要支持 Chat Completions；Claude 编程工具还需要模型支持工具调用。原生 Anthropic / Responses 上游暂未接入。</p>
+          <div class="row provider-actions"><button class="ghost" id="saveProvider" type="submit">保存</button><button class="ghost primary" id="saveActivateProvider" type="submit">保存并启用</button><button class="ghost" id="cancelProvider" type="button">取消编辑</button></div>
+          <p class="note">Key 仅保存在本机 config.json，读取配置时不会回传到页面。编辑时留空保留原 Key。</p>
+        </fieldset>
+      </form>
+    </div>
+    <div class="panel provider-connect">
+      <h2>在 Claude 中使用</h2>
+      <p>Claude Code：生成项目内的专用配置后，从此项目运行 <code class="mono">.\claude.cmd</code>（Windows）或 <code class="mono">sh ./claude</code>（macOS / Linux）。切换供应商后，新请求立即生效。</p>
+      <div class="row"><button class="ghost" id="setupClaude" type="button">生成 Claude Code 专用配置</button><span class="note" id="claudeProfileStatus" role="status"></span></div>
+      <p class="note">此操作写入 claude-profile/settings.json，已有文件会备份为 settings.json.bak。专用配置通过 CLAUDE_CONFIG_DIR 使用。</p>
+      <p class="note">支持自定义推理网关的 Claude 客户端：网关地址 <code class="mono" id="claudeGatewayUrl"></code>；<span id="claudeGatewayAuth"></span>。</p>
+    </div>
+  </section>
   <!-- ================= 概览 ================= -->
   <section class="view on" id="view-overview">
     <div class="cards" id="cards">
@@ -261,7 +300,7 @@ async function pollHealth() {
     $('#pill').classList.add('up');
     $('#pillText').textContent = '网关运行中 · :' + location.port;
     const up = $('#upstreamPill');
-    up.hidden = false;
+    up.hidden = !h.upstream;
     up.textContent = '上游 ' + String(h.upstream).replace(/^https?:\/\//, '');
     up.title = `上游模型缓存 ${h.upstreamModelsCached} 个 · web_search ${h.webSearch ? '开' : '关'}`;
   } catch {
@@ -391,7 +430,7 @@ function shortModel(id) {
 
 $('#clearBtn').onclick = async () => {
   if (!confirm('清空全部请求日志？（内存 + 磁盘文件）')) return;
-  await fetch('/admin/logs/clear', { method: 'POST' });
+  await fetch('/admin/logs/clear', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   loadLogs(); loadStats();
 };
 
