@@ -1,39 +1,71 @@
-.provider-heading h1 { font-size: 23px; letter-spacing: -.5px; margin: 0 0 5px; }
+/* 供应商页布局与交互（视觉令牌见 index.html :root） */
+
+.provider-heading h1 {
+  font: 400 30px/1.15 var(--display); letter-spacing: .01em;
+  margin: 0 0 6px;
+}
 .provider-heading p { margin: 0; }
-.provider-heading { margin: 2px 0 18px; }
+.provider-heading { margin: 2px 0 20px; }
+
 .provider-layout { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
+
 .provider-editor fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
-.provider-editor input:not([type=checkbox]) { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-height: 42px; padding: 9px 11px; font: 13px var(--mono); }
-.provider-editor label:not(.chk) { display: block; margin-bottom: 6px; font-size: 13px; }
+.provider-editor input:not([type=checkbox]) {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  min-height: 42px; padding: 9px 11px; font: 13px var(--mono);
+  transition: border-color .15s ease;
+}
+.provider-editor input:not([type=checkbox]):hover { border-color: color-mix(in srgb, var(--text) 25%, var(--line)); }
+.provider-editor input::placeholder { color: color-mix(in srgb, var(--muted) 65%, transparent); }
+.provider-editor label:not(.chk) { display: block; margin-bottom: 6px; font: 500 12px var(--mono); letter-spacing: .04em; color: var(--muted); }
 .provider-editor input:focus-visible, #view-providers button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .provider-editor .note { margin: 6px 0 12px; }
 .provider-editor .provider-anonymous { margin-top: 9px; }
+
 .provider-models { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
 .provider-actions { margin-top: 18px; }
-#view-providers button.ghost { min-height: 40px; padding: 8px 13px; font-size: 13px; transition: background .15s ease; }
-#view-providers .primary { background: var(--accent-soft); border-color: var(--accent); color: var(--text); font-weight: 600; }
+
+#view-providers button.ghost { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+#view-providers .primary {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600;
+}
+#view-providers .primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
 #view-providers button:disabled { opacity: .55; cursor: wait; }
-.provider-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--panel); margin-bottom: 12px; overflow-wrap: anywhere; }
-.provider-card.active { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
-.provider-card h2 { margin: 0; font-size: 15px; }
+
+/* ---- 供应商卡片：启用中的卡带左侧刻度线 ---- */
+.provider-card {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 15px 16px; background: var(--panel); margin-bottom: 12px;
+  overflow-wrap: anywhere; box-shadow: var(--shadow);
+  transition: border-color .15s ease;
+}
+.provider-card:hover { border-color: color-mix(in srgb, var(--text) 25%, var(--line)); }
+.provider-card.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: inset 3px 0 var(--accent), var(--shadow);
+}
+.provider-card h2 { margin: 0; font: 600 15px/1.3 var(--sans); }
 .provider-card .row:last-child { margin: 14px 0 0; }
 .provider-card p { margin: 8px 0; }
-.provider-card .provider-model-line { font-size: 12px; line-height: 1.8; }
+.provider-card .provider-model-line { font-size: 12px; line-height: 1.9; }
+.provider-card .provider-model-line code { font-size: 11.5px; }
+.provider-card .provider-model-line .muted {
+  display: inline-block; min-width: 30px;
+  font: 500 10px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+}
+
 .provider-status { padding: 0; margin: 0 0 14px; min-height: 22px; overflow-wrap: anywhere; }
 .provider-status.error { color: var(--err); }
 .provider-status.success { color: var(--ok); }
 .provider-connect p { overflow-wrap: anywhere; }
+
 @media (max-width: 760px) {
   .provider-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .provider-models { grid-template-columns: minmax(0, 1fr); }
   #view-providers button.ghost { min-height: 44px; }
-  nav.seg { flex-wrap: wrap; }
   #upstreamPill { max-width: 100%; overflow-wrap: anywhere; }
 }
-@media (max-width: 640px) {
-  header.top { gap: 8px; }
-  header.top .spacer { display: none; }
-  header.top nav.seg { flex: 1; }
-  header.top nav.seg button { padding: 5px 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .provider-editor input, .provider-card, #view-providers button.ghost { transition: none; }
 }
-@media (prefers-reduced-motion: reduce) { #view-providers button.ghost { transition: none; } }

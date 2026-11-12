@@ -6,135 +6,253 @@
 <title>Gateway 控制台</title>
 <link rel="stylesheet" href="/ui/providers.css">
 <script defer src="/ui/providers.js"></script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='8' rx='3' fill='%23e8842c'/%3E%3Crect x='3' y='18' width='26' height='8' rx='3' fill='%23c96a1a'/%3E%3Ccircle cx='8' cy='10' r='1.6' fill='%23fff'/%3E%3Ccircle cx='8' cy='22' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%2326231c'/%3E%3Crect x='8' y='9' width='16' height='5' rx='2.5' fill='%23e8842c'/%3E%3Crect x='8' y='18' width='16' height='5' rx='2.5' fill='%232d7f8a'/%3E%3C/svg%3E">
 <style>
+  /* ---- 设计令牌：纸面仪器风。橙 = Claude 侧（输入），钢青 = 上游侧（输出） ---- */
   :root {
-    --bg: #f6f6f4; --panel: #ffffff; --panel2: #fafaf8; --line: #e4e4e0;
-    --text: #1f2328; --muted: #6e7378; --accent: #e8842c; --accent-soft: #fdf1e4;
-    --ok: #2da44e; --err: #cf222e; --bar1: #e8842c; --bar2: #f2b36d;
-    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
-    --radius: 12px; --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    --bg: #f4f2ec; --panel: #fdfcf8; --panel2: #efede5; --line: #ddd8cb;
+    --line-soft: color-mix(in srgb, var(--line) 55%, transparent);
+    --text: #26231c; --muted: #837d6f;
+    --accent: #e8842c; --accent-deep: #c96a1a; --accent-soft: #f8ecda; --accent-contrast: #fff;
+    --teal: #2d7f8a; --teal-soft: #e3eef0;
+    --ok: #35855a; --err: #c4402f;
+    --bar1: #e8842c; --bar2: #2d7f8a;
+    --shadow: 0 1px 2px rgba(64,52,30,.06), 0 6px 22px rgba(64,52,30,.05);
+    --radius: 14px;
+    --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+    --sans: 'Inter', 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+    --display: 'Instrument Serif', 'Noto Serif SC', 'Songti SC', SimSun, serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #17181a; --panel: #1f2124; --panel2: #242629; --line: #33363a;
-      --text: #e8eaed; --muted: #9aa0a6; --accent: #f0953f; --accent-soft: #3a2c1c;
-      --ok: #4cc26b; --err: #f47067; --bar1: #f0953f; --bar2: #6b4a25;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+      --bg: #141518; --panel: #1c1e22; --panel2: #24262c; --line: #363a41;
+      --line-soft: color-mix(in srgb, var(--line) 55%, transparent);
+      --text: #e7e5df; --muted: #938f85;
+      --accent: #f0953f; --accent-deep: #e8842c; --accent-soft: #372813; --accent-contrast: #241505;
+      --teal: #55abb8; --teal-soft: #16323a;
+      --ok: #5cb97e; --err: #ee6f5c;
+      --bar1: #f0953f; --bar2: #55abb8;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #17181a; --panel: #1f2124; --panel2: #242629; --line: #33363a;
-    --text: #e8eaed; --muted: #9aa0a6; --accent: #f0953f; --accent-soft: #3a2c1c;
-    --ok: #4cc26b; --err: #f47067; --bar1: #f0953f; --bar2: #6b4a25;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    --bg: #141518; --panel: #1c1e22; --panel2: #24262c; --line: #363a41;
+    --line-soft: color-mix(in srgb, var(--line) 55%, transparent);
+    --text: #e7e5df; --muted: #938f85;
+    --accent: #f0953f; --accent-deep: #e8842c; --accent-soft: #372813; --accent-contrast: #241505;
+    --teal: #55abb8; --teal-soft: #16323a;
+    --ok: #5cb97e; --err: #ee6f5c;
+    --bar1: #f0953f; --bar2: #55abb8;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.55 system-ui, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    margin: 0; color: var(--text);
+    font: 14px/1.55 var(--sans);
+    background:
+      radial-gradient(color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 1.4px) 0 0 / 26px 26px,
+      var(--bg);
     -webkit-font-smoothing: antialiased;
   }
+
+  /* ---- 头部：活的协议链路 claude → gateway → 上游 ---- */
   header.top {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 20px; border-bottom: 1px solid var(--line);
-    background: var(--panel); position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 11px 22px; border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--panel) 86%, transparent);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 10;
   }
-  .logo { width: 22px; height: 22px; border-radius: 6px; flex: none;
-    background:
-      linear-gradient(var(--accent) 0 0) 0 0 / 100% 44% no-repeat,
-      linear-gradient(#c96a1a 0 0) 0 100% / 100% 44% no-repeat;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
-  }
-  .brand { font-weight: 650; font-size: 15px; letter-spacing: .2px; }
-  .brand small { color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .pill {
+  .chain { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .endpoint {
     display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12px; color: var(--muted);
-    border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px;
+    font: 600 11px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--line); background: var(--panel);
+    border-radius: 8px; padding: 6px 10px; white-space: nowrap;
   }
-  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
-  .pill.up .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+  .ep-claude { color: var(--accent-deep); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--accent-soft); }
+  .ep-upstream { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); background: var(--teal-soft); text-transform: none; letter-spacing: .02em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+  .wire { position: relative; width: 28px; height: 1px; flex: none;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--line) 30%, transparent), var(--line));
+  }
+  .wire i { position: absolute; top: -2px; left: -6px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent); opacity: 0; animation: flow 1.7s linear infinite;
+  }
+  .wire.link-up { background: linear-gradient(90deg, var(--line), color-mix(in srgb, var(--line) 30%, transparent)); }
+  .wire.link-up i { background: var(--teal); animation-delay: .85s; }
+  @keyframes flow { 0% { left: -6px; opacity: 0; } 18% { opacity: 1; } 82% { opacity: 1; } 100% { left: calc(100% + 1px); opacity: 0; } }
+  .chain:has(#pill:not(.up)) .wire i { animation-play-state: paused; opacity: .25; }
+  .chain:has(#upstreamPill[hidden]) .link-up i { animation-play-state: paused; opacity: .25; }
+  .gw-node { display: inline-flex; align-items: center; gap: 8px;
+    font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap;
+  }
+  .gw-node b { color: var(--muted); font-weight: 500; letter-spacing: .02em; }
+  .logo { width: 20px; height: 20px; border-radius: 5px; flex: none; border: 1px solid var(--line);
+    background:
+      linear-gradient(var(--accent) 0 0) 20% 22% / 60% 26% no-repeat,
+      linear-gradient(var(--teal) 0 0) 20% 78% / 60% 26% no-repeat,
+      var(--panel);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font: 500 11px/1 var(--mono); letter-spacing: .04em;
+    color: var(--err); border: 1px solid color-mix(in srgb, var(--err) 40%, var(--line));
+    background: color-mix(in srgb, var(--err) 7%, var(--panel));
+    border-radius: 99px; padding: 6px 11px; white-space: nowrap;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .pill.up { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+    background: color-mix(in srgb, var(--ok) 7%, var(--panel));
+  }
+  .pill.up .dot { animation: breathe 2.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent); } }
   .spacer { flex: 1; }
+  .top-actions { display: flex; align-items: center; gap: 8px; }
+
   button.ghost {
     border: 1px solid var(--line); background: var(--panel); color: var(--text);
-    border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+    border-radius: 9px; padding: 7px 13px; font: 500 12.5px var(--sans); cursor: pointer;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+    transition: border-color .15s ease, background .15s ease, transform .06s ease;
   }
-  button.ghost:hover { background: var(--panel2); }
-  nav.seg {
-    display: flex; gap: 2px; background: var(--panel2); border: 1px solid var(--line);
-    border-radius: 10px; padding: 3px;
-  }
+  button.ghost:hover { border-color: color-mix(in srgb, var(--text) 28%, var(--line)); background: var(--panel2); }
+  button.ghost:active { transform: translateY(1px); }
+  button.ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  nav.seg { display: flex; gap: 4px; flex-wrap: wrap; }
   nav.seg button {
-    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
-    padding: 5px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid transparent; background: transparent; color: var(--muted);
+    font: 500 12.5px var(--sans); padding: 6px 13px; border-radius: 9px; cursor: pointer;
+    transition: color .12s ease;
   }
-  nav.seg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 550; }
-  main { max-width: 1060px; margin: 0 auto; padding: 20px; }
+  nav.seg button:hover { color: var(--text); }
+  nav.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  nav.seg button.on { background: var(--panel); color: var(--text); border-color: var(--line); box-shadow: var(--shadow); font-weight: 550; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 26px 22px 56px; }
   section.view { display: none; }
   section.view.on { display: block; }
-  h2 { font-size: 15px; margin: 0 0 12px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
-  .card .k { font-size: 12px; color: var(--muted); }
-  .card .v { font-size: 22px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .card .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  h2 { font: 400 17.5px/1.3 var(--display); letter-spacing: .01em; margin: 0 0 12px; }
+
+  /* ---- 统计卡：衬线大数字 ---- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px 12px; box-shadow: var(--shadow);
+  }
+  .card .k { font: 500 11px/1.45 var(--mono); letter-spacing: .05em; color: var(--muted); }
+  .card .v { font: 400 30px/1.15 var(--display); margin-top: 5px; letter-spacing: .01em; }
+  .card .v small { font: 400 12.5px var(--sans); color: var(--muted); letter-spacing: 0; }
   .card.warn .v { color: var(--err); }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 18px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 18px;
+  }
+
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); font-variant-numeric: tabular-nums; vertical-align: middle; }
+  th { text-align: left; color: var(--muted); font: 500 10.5px var(--mono);
+    letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft);
+    font-variant-numeric: tabular-nums; vertical-align: middle;
+  }
   tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background .12s ease; }
+  tbody tr:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
   td.num, th.num { text-align: right; }
-  code.mono { font-family: var(--mono); font-size: 12px; }
+  code.mono { font-family: var(--mono); font-size: 12px; background: var(--panel2);
+    border: 1px solid var(--line-soft); border-radius: 5px; padding: 1px 5px;
+  }
   .muted { color: var(--muted); }
   .bar-cell { position: relative; min-width: 160px; }
-  .bar-cell .bar { height: 6px; border-radius: 4px; background: var(--bar1); opacity: .85; min-width: 2px; }
-  .badge { display: inline-block; font-size: 11px; border-radius: 6px; padding: 1px 7px; font-family: var(--mono); }
-  .badge.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
-  .badge.err { color: var(--err); background: color-mix(in srgb, var(--err) 12%, transparent); }
-  .badge.dim { color: var(--muted); background: var(--panel2); }
+  .bar-cell .bar { height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--bar1), color-mix(in srgb, var(--bar1) 55%, transparent)); min-width: 2px; }
+  .badge { display: inline-block; font: 500 10.5px var(--mono); letter-spacing: .03em;
+    border: 1px solid transparent; border-radius: 99px; padding: 2px 8px;
+  }
+  .badge.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); border-color: color-mix(in srgb, var(--ok) 32%, transparent); }
+  .badge.err { color: var(--err); background: color-mix(in srgb, var(--err) 10%, transparent); border-color: color-mix(in srgb, var(--err) 32%, transparent); }
+  .badge.dim { color: var(--muted); background: var(--panel2); border-color: var(--line-soft); }
+
   .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .row .grow { flex: 1; }
   label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
-  select { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+  select { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; cursor: pointer;
+  }
   button.danger { border-color: color-mix(in srgb, var(--err) 40%, var(--line)); color: var(--err); }
+  button.danger:hover { border-color: var(--err); background: color-mix(in srgb, var(--err) 7%, var(--panel)); }
   textarea {
     width: 100%; min-height: 110px; resize: vertical;
-    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
     border-radius: 10px; padding: 10px 12px; font: 13px/1.6 var(--mono);
   }
-  textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: transparent; }
+  textarea::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+  textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: transparent; }
   .fld { margin-bottom: 12px; }
-  .fld .cap { font-size: 12.5px; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .fld .cap { font: 500 12px var(--mono); letter-spacing: .04em; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
   .result { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
   .result .card { flex: 1; min-width: 130px; }
   .note { font-size: 12px; color: var(--muted); }
   .empty { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; }
+
   .chart svg { display: block; width: 100%; height: 150px; }
-  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: r .8s linear infinite; vertical-align: -2px; }
+
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: r .8s linear infinite; vertical-align: -2px;
+  }
   @keyframes r { to { transform: rotate(360deg); } }
-  .flash { animation: f .5s ease; }
-  @keyframes f { from { background: var(--accent-soft); } }
-  @media (max-width: 640px) { header.top { flex-wrap: wrap; } main { padding: 12px; } }
+  .flash { animation: f .6s ease; }
+  @keyframes f { from { background: color-mix(in srgb, var(--accent) 10%, transparent); } }
+
+  @media (max-width: 640px) {
+    header.top { padding: 10px 14px; gap: 8px; }
+    header.top .spacer { display: none; }
+    header.top .chain { order: 1; flex: 1; min-width: 0; }
+    header.top .top-actions { order: 2; }
+    header.top .pill { display: none; } /* 移动端链路呼吸灯已表达在线状态 */
+    header.top nav.seg { order: 3; flex-basis: 100%; justify-content: stretch; }
+    header.top nav.seg button { flex: 1; text-align: center; padding: 6px 4px; }
+    .ep-upstream { flex: 1; min-width: 0; justify-content: flex-start; }
+    .chain .wire { width: 12px; }
+    /* 手机上收起节点文字：claude → ▣ → 上游地址 */
+    .gw-node { font-size: 0; gap: 0; }
+    .gw-node .logo { width: 18px; height: 18px; }
+    .endpoint.ep-claude { padding: 6px 8px; }
+    main { padding: 14px 14px 40px; }
+    .panel { padding: 14px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wire i, .pill.up .dot, .spin, .flash { animation: none !important; }
+    button.ghost, tbody tr { transition: none; }
+  }
 </style>
 </head>
 <body>
 <header class="top">
-  <span class="logo" aria-hidden="true"></span>
-  <span class="brand">Gateway 控制台<small>anthropic ↔ openai</small></span>
+  <div class="chain" aria-label="请求链路：Claude 经网关到上游">
+    <span class="endpoint ep-claude">claude</span>
+    <span class="wire" aria-hidden="true"><i></i></span>
+    <span class="gw-node"><span class="logo" aria-hidden="true"></span>gateway<b id="gwPort">:8787</b></span>
+    <span class="wire link-up" aria-hidden="true"><i></i></span>
+    <span class="endpoint ep-upstream" id="upstreamPill" hidden></span>
+  </div>
   <span class="pill" id="pill"><span class="dot"></span><span id="pillText">连接中…</span></span>
-  <span class="pill" id="upstreamPill" title="上游服务" hidden></span>
   <span class="spacer"></span>
   <nav class="seg" id="tabs" aria-label="导航">
     <button data-view="overview" class="on">概览</button>
     <button data-view="providers">供应商</button>
     <button data-view="logs">请求日志</button>
-    <button data-view="counter">Token 计数</button>
   </nav>
-  <button class="ghost" id="themeBtn" title="切换主题">🌗</button>
+  <div class="top-actions">
+    <button class="ghost" id="themeBtn" title="切换主题">🌗</button>
+  </div>
 </header>
 
 <main>
@@ -177,12 +295,12 @@
   <!-- ================= 概览 ================= -->
   <section class="view on" id="view-overview">
     <div class="cards" id="cards">
-      <div class="card"><div class="k">今日请求</div><div class="v" id="c-req">–</div></div>
-      <div class="card"><div class="k">今日输入 tokens</div><div class="v" id="c-in">–</div></div>
-      <div class="card"><div class="k">今日输出 tokens</div><div class="v" id="c-out">–</div></div>
-      <div class="card"><div class="k">缓存命中 <small id="c-cache-sub"></small></div><div class="v" id="c-cache">–</div></div>
-      <div class="card warn"><div class="k">今日错误</div><div class="v" id="c-err">–</div></div>
-      <div class="card"><div class="k">web_search 次数</div><div class="v" id="c-search">–</div></div>
+      <div class="card k-req"><div class="k">今日请求</div><div class="v" id="c-req">–</div></div>
+      <div class="card k-in"><div class="k">今日输入 tokens</div><div class="v" id="c-in">–</div></div>
+      <div class="card k-out"><div class="k">今日输出 tokens</div><div class="v" id="c-out">–</div></div>
+      <div class="card k-cache"><div class="k">缓存命中 <small id="c-cache-sub"></small></div><div class="v" id="c-cache">–</div></div>
+      <div class="card warn k-err"><div class="k">今日错误</div><div class="v" id="c-err">–</div></div>
+      <div class="card k-search"><div class="k">web_search 次数</div><div class="v" id="c-search">–</div></div>
     </div>
 
     <div class="panel chart">
@@ -231,28 +349,6 @@
       <div id="logTable"></div>
     </div>
   </section>
-
-  <!-- ================= Token 计数 ================= -->
-  <section class="view" id="view-counter">
-    <div class="panel">
-      <h2>Token 计数器</h2>
-      <p class="note" style="margin-top:-6px">使用网关的 <code class="mono">/v1/messages/count_tokens</code> 估算（中文约 1 字/token，英文约 3.8 字符/token；Claude Code 会把工具 schema 一并计入）。</p>
-      <div class="fld">
-        <div class="cap"><span>系统提示（可选）</span><span id="sysChars" class="muted"></span></div>
-        <textarea id="sysText" placeholder="system prompt…"></textarea>
-      </div>
-      <div class="fld">
-        <div class="cap"><span>对话 / 文本内容</span><span id="msgChars" class="muted"></span></div>
-        <textarea id="msgText" placeholder="粘贴要估算的内容…" style="min-height:160px"></textarea>
-      </div>
-      <div class="result" id="counterResult">
-        <div class="card"><div class="k">估算 tokens</div><div class="v" id="t-total">–</div></div>
-        <div class="card"><div class="k">字符数</div><div class="v" id="t-chars">–</div></div>
-        <div class="card"><div class="k">其中中日韩字符</div><div class="v" id="t-cjk">–</div></div>
-        <div class="card"><div class="k">折合英文单词 ≈</div><div class="v" id="t-words">–</div></div>
-      </div>
-    </div>
-  </section>
 </main>
 
 <script>
@@ -265,6 +361,7 @@ const fmt = (n) => {
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const escAttr = esc;
+$('#gwPort').textContent = ':' + (location.port || '8787');
 
 // ---- 主题：自动 -> 浅色 -> 深色 循环，记忆在 localStorage ----
 const themeBtn = $('#themeBtn');
@@ -298,7 +395,7 @@ async function pollHealth() {
     const r = await fetch('/health');
     const h = await r.json();
     $('#pill').classList.add('up');
-    $('#pillText').textContent = '网关运行中 · :' + location.port;
+    $('#pillText').textContent = '网关运行中';
     const up = $('#upstreamPill');
     up.hidden = !h.upstream;
     up.textContent = '上游 ' + String(h.upstream).replace(/^https?:\/\//, '');
@@ -358,19 +455,22 @@ function renderOverview() {
 }
 
 function renderChart(daily) {
-  const W = 900, H = 150, padL = 8, padB = 20, gap = 6;
+  const W = 900, H = 150, padL = 8, padB = 20, gap = 6, BW_MAX = 72;
   const n = Math.max(daily.length, 1);
-  const bw = (W - padL * 2 - gap * (n - 1)) / n;
+  // 柱宽封顶：天数少时靠左排，不留单根巨柱
+  const slot = Math.min((W - padL * 2 - gap * (n - 1)) / n, BW_MAX);
+  const span = n * slot + (n - 1) * gap;
+  const x0 = padL; // 靠左布局
   const maxV = Math.max(1, ...daily.map((d) => d.input + d.output * 5));
   let bars = '', labels = '';
   daily.forEach((d, i) => {
-    const x = padL + i * (bw + gap);
+    const x = x0 + i * (slot + gap);
     const hIn = (d.input / maxV) * (H - padB);
     const hOut = (d.output * 5 / maxV) * (H - padB); // 输出放大 5x
     const yIn = H - padB - hIn, yOut = yIn - hOut;
-    if (d.input) bars += `<rect x="${x}" y="${yIn}" width="${bw}" height="${Math.max(hIn, 1)}" rx="2.5" fill="var(--bar1)"><title>${d.day} 输入 ${fmt(d.input)} tok / ${d.requests} 次请求</title></rect>`;
-    if (d.output) bars += `<rect x="${x}" y="${yOut}" width="${bw}" height="${Math.max(hOut, 1)}" rx="2.5" fill="var(--bar2)"><title>${d.day} 输出 ${fmt(d.output)} tok</title></rect>`;
-    labels += `<text x="${x + bw / 2}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="middle">${d.day.slice(5)}</text>`;
+    if (d.input) bars += `<rect x="${x}" y="${yIn}" width="${slot}" height="${Math.max(hIn, 1)}" rx="2.5" fill="var(--bar1)"><title>${d.day} 输入 ${fmt(d.input)} tok / ${d.requests} 次请求</title></rect>`;
+    if (d.output) bars += `<rect x="${x}" y="${yOut}" width="${slot}" height="${Math.max(hOut, 1)}" rx="2.5" fill="var(--bar2)"><title>${d.day} 输出 ${fmt(d.output)} tok</title></rect>`;
+    labels += `<text x="${x + slot / 2}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="middle">${n <= 4 ? d.day.slice(2) : d.day.slice(5)}</text>`;
   });
   $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:150px">${bars}${labels}</svg>`;
 }
@@ -433,41 +533,6 @@ $('#clearBtn').onclick = async () => {
   await fetch('/admin/logs/clear', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   loadLogs(); loadStats();
 };
-
-// ---- Token 计数器 ----
-const CJK_RE = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef\u3040-\u30ff\uac00-\ud7af]/g;
-let counterTimer = null;
-function scheduleCount() {
-  clearTimeout(counterTimer);
-  counterTimer = setTimeout(countTokens, 350);
-  const sys = $('#sysText').value, msg = $('#msgText').value;
-  $('#sysChars').textContent = sys.length + ' 字符';
-  $('#msgChars').textContent = msg.length + ' 字符';
-  const all = sys + msg;
-  const cjk = (all.match(CJK_RE) || []).length;
-  $('#t-chars').textContent = all.length.toLocaleString();
-  $('#t-cjk').textContent = cjk.toLocaleString();
-  $('#t-words').textContent = Math.ceil((all.length - cjk) / 5).toLocaleString();
-}
-async function countTokens() {
-  const sys = $('#sysText').value.trim();
-  const msg = $('#msgText').value;
-  if (!sys && !msg.trim()) { $('#t-total').textContent = '0'; return; }
-  try {
-    const r = await fetch('/v1/messages/count_tokens', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        ...(sys ? { system: sys } : {}),
-        messages: [{ role: 'user', content: msg || '.' }],
-      }),
-    });
-    const data = await r.json();
-    $('#t-total').textContent = fmt(data.input_tokens);
-  } catch { $('#t-total').textContent = '–'; }
-}
-$('#sysText').addEventListener('input', scheduleCount);
-$('#msgText').addEventListener('input', scheduleCount);
 
 // ---- 刷新调度 ----
 let refreshTimer = null;
